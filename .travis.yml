@@ -1,0 +1,10 @@
+language: python
+python:
+  - 3.5
+  - 3.6
+  - nightly
+install:
+  - wget https://github.com/kr/beanstalkd/archive/v1.10.tar.gz
+  - tar -xzvf v1.10.tar.gz
+  - pushd beanstalkd-1.10 && make && sudo make install && popd
+script: make test
