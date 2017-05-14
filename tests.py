@@ -1,5 +1,6 @@
 import subprocess
 import time
+from contextlib import closing
 from datetime import datetime, timedelta
 
 import pytest
@@ -20,9 +21,10 @@ def with_beanstalkd(test):
     def wrapper():
         args = ('beanstalkd', '-l', '127.0.0.1', '-p', str(TEST_PORT))
         beanstalkd = subprocess.Popen(args)
-        time.sleep(0.001)
+        time.sleep(0.01)
         try:
-            test(Client(port=TEST_PORT))
+            with closing(Client(port=TEST_PORT)) as c:
+                test(c)
         finally:
             beanstalkd.terminate()
             beanstalkd.wait()

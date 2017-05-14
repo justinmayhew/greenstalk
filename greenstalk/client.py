@@ -15,6 +15,10 @@ class Client:
         self._sock = socket.create_connection((host, port))
         self._reader = self._sock.makefile('rb')
 
+    def close(self):
+        self._reader.close()
+        self._sock.close()
+
     def _send_command(self,
                       line: bytes,
                       *args: Any,
