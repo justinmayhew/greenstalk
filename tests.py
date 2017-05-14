@@ -83,6 +83,16 @@ def test_ttr(c):
 
 
 @with_beanstalkd
+def test_reserve_throws_on_time_out(c):
+    before = datetime.now()
+    with pytest.raises(TimedOutError):
+        c.reserve(timeout=timedelta(seconds=1))
+    delta = datetime.now() - before
+    assert delta >= timedelta(seconds=1)
+    assert delta <= timedelta(seconds=1, milliseconds=50)
+
+
+@with_beanstalkd
 def test_max_job_size(c):
     with pytest.raises(JobTooBigError):
         c.put(bytes(2**16))
