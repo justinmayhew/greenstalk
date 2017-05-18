@@ -1,9 +1,10 @@
 import socket
 from datetime import timedelta
-from typing import Any, List, Optional, Tuple
+from typing import Any, Iterable, List, Optional, Tuple, Union
 
 from .exceptions import ERROR_REPLIES, UnexpectedDisconnectError
 
+DEFAULT_TUBE = b'default'
 DEFAULT_PRIORITY = 2**16
 DEFAULT_DELAY = timedelta()
 DEFAULT_TTR = timedelta(seconds=60)
@@ -11,9 +12,26 @@ DEFAULT_TTR = timedelta(seconds=60)
 
 class Client:
 
-    def __init__(self, host: str = '127.0.0.1', port: int = 11300) -> None:
+    def __init__(self,
+                 host: str = '127.0.0.1',
+                 port: int = 11300,
+                 use: bytes = DEFAULT_TUBE,
+                 watch: Union[bytes, Iterable[bytes]] = DEFAULT_TUBE) -> None:
         self._sock = socket.create_connection((host, port))
         self._reader = self._sock.makefile('rb')
+
+        if use != DEFAULT_TUBE:
+            self.use(use)
+
+        if isinstance(watch, bytes):
+            if watch != DEFAULT_TUBE:
+                self.watch(watch)
+                self.ignore(DEFAULT_TUBE)
+        else:
+            for tube in watch:
+                self.watch(tube)
+            if DEFAULT_TUBE not in watch:
+                self.ignore(DEFAULT_TUBE)
 
     def close(self):
         self._reader.close()

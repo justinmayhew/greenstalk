@@ -17,32 +17,35 @@ from greenstalk.exceptions import (
 TEST_PORT = 4444
 
 
-def with_beanstalkd(test):
-    def wrapper():
-        args = ('beanstalkd', '-l', '127.0.0.1', '-p', str(TEST_PORT))
-        beanstalkd = subprocess.Popen(args)
-        time.sleep(0.01)
-        try:
-            with closing(Client(port=TEST_PORT)) as c:
-                test(c)
-        finally:
-            beanstalkd.terminate()
-            beanstalkd.wait()
-    return wrapper
+def with_beanstalkd(**kwargs):
+    def decorator(test):
+        def wrapper():
+            args = ('beanstalkd', '-l', '127.0.0.1', '-p', str(TEST_PORT))
+            beanstalkd = subprocess.Popen(args)
+            time.sleep(0.01)
+            try:
+                with closing(Client(port=TEST_PORT, **kwargs)) as c:
+                    test(c)
+            finally:
+                beanstalkd.terminate()
+                beanstalkd.wait()
+        return wrapper
+    return decorator
 
 
-@with_beanstalkd
+@with_beanstalkd()
 def test_basic_usage(c):
-    c.use(b'email')
-    c.put(b'test@example.com')
-    c.watch(b'email')
+    c.use(b'emails')
+    put_jid = c.put(b'test@example.com')
+    c.watch(b'emails')
     c.ignore(b'default')
-    jid, body = c.reserve()
+    reserve_jid, body = c.reserve()
+    assert put_jid == reserve_jid
     assert body == b'test@example.com'
-    c.delete(jid)
+    c.delete(reserve_jid)
 
 
-@with_beanstalkd
+@with_beanstalkd()
 def test_put_priority(c):
     c.put(b'2', priority=2)
     c.put(b'1', priority=1)
@@ -52,7 +55,7 @@ def test_put_priority(c):
     assert body == b'2'
 
 
-@with_beanstalkd
+@with_beanstalkd()
 def test_delays(c):
     c.put(b'delayed', delay=timedelta(seconds=1))
     before = datetime.now()
@@ -68,7 +71,7 @@ def test_delays(c):
         c.reserve(timeout=timedelta(seconds=0))
 
 
-@with_beanstalkd
+@with_beanstalkd()
 def test_ttr(c):
     c.put(b'two second ttr', ttr=timedelta(seconds=2))
     before = datetime.now()
@@ -84,8 +87,8 @@ def test_ttr(c):
     assert delta <= timedelta(seconds=2, milliseconds=50)
 
 
-@with_beanstalkd
-def test_reserve_throws_on_time_out(c):
+@with_beanstalkd()
+def test_reserve_raises_on_timeout(c):
     before = datetime.now()
     with pytest.raises(TimedOutError):
         c.reserve(timeout=timedelta(seconds=1))
@@ -94,19 +97,41 @@ def test_reserve_throws_on_time_out(c):
     assert delta <= timedelta(seconds=1, milliseconds=50)
 
 
-@with_beanstalkd
+@with_beanstalkd(use=b'hosts', watch=b'hosts')
+def test_initialize_with_tubes(c):
+    c.put(b'www.example.com')
+    jid, body = c.reserve()
+    assert body == b'www.example.com'
+    c.delete(jid)
+    c.use(b'default')
+    c.put(b'')
+    with pytest.raises(TimedOutError):
+        c.reserve(timeout=timedelta())
+
+
+@with_beanstalkd(use=b'static', watch=[b'static', b'dynamic'])
+def test_initialize_watch_multiple(c):
+    c.put(b'c')
+    c.put(b'rust')
+    c.use(b'dynamic')
+    c.put(b'python')
+    for _ in range(3):
+        c.reserve(timeout=timedelta())
+
+
+@with_beanstalkd()
 def test_max_job_size(c):
     with pytest.raises(JobTooBigError):
         c.put(bytes(2**16))
 
 
-@with_beanstalkd
+@with_beanstalkd()
 def test_job_not_found(c):
     with pytest.raises(NotFoundError):
         c.delete(87)
 
 
-@with_beanstalkd
+@with_beanstalkd()
 def test_not_ignored(c):
     with pytest.raises(NotIgnoredError):
         c.ignore(b'default')
