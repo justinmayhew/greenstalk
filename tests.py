@@ -35,32 +35,32 @@ def with_beanstalkd(**kwargs):
 
 @with_beanstalkd()
 def test_basic_usage(c):
-    c.use(b'emails')
-    put_jid = c.put(b'test@example.com')
-    c.watch(b'emails')
-    c.ignore(b'default')
+    c.use('emails')
+    put_jid = c.put('测试@example.com')
+    c.watch('emails')
+    c.ignore('default')
     reserve_jid, body = c.reserve()
     assert put_jid == reserve_jid
-    assert body == b'test@example.com'
+    assert body == '测试@example.com'
     c.delete(reserve_jid)
 
 
 @with_beanstalkd()
 def test_put_priority(c):
-    c.put(b'2', priority=2)
-    c.put(b'1', priority=1)
+    c.put('2', priority=2)
+    c.put('1', priority=1)
     _, body = c.reserve()
-    assert body == b'1'
+    assert body == '1'
     _, body = c.reserve()
-    assert body == b'2'
+    assert body == '2'
 
 
 @with_beanstalkd()
 def test_delays(c):
-    c.put(b'delayed', delay=timedelta(seconds=1))
+    c.put('delayed', delay=timedelta(seconds=1))
     before = datetime.now()
     jid, body = c.reserve()
-    assert body == b'delayed'
+    assert body == 'delayed'
     assert datetime.now() - before >= timedelta(seconds=1)
     c.release(jid, delay=timedelta(seconds=2))
     with pytest.raises(TimedOutError):
@@ -73,7 +73,7 @@ def test_delays(c):
 
 @with_beanstalkd()
 def test_ttr(c):
-    c.put(b'two second ttr', ttr=timedelta(seconds=2))
+    c.put('two second ttr', ttr=timedelta(seconds=2))
     before = datetime.now()
     jid, _ = c.reserve()
     with pytest.raises(DeadlineSoonError):
@@ -97,29 +97,43 @@ def test_reserve_raises_on_timeout(c):
     assert delta <= timedelta(seconds=1, milliseconds=50)
 
 
-@with_beanstalkd(use=b'hosts', watch=b'hosts')
+@with_beanstalkd(use='hosts', watch='hosts')
 def test_initialize_with_tubes(c):
-    c.put(b'www.example.com')
+    c.put('www.example.com')
     jid, body = c.reserve()
-    assert body == b'www.example.com'
+    assert body == 'www.example.com'
     c.delete(jid)
-    c.use(b'default')
-    c.put(b'')
+    c.use('default')
+    c.put('')
     with pytest.raises(TimedOutError):
         c.reserve(timeout=timedelta())
 
 
-@with_beanstalkd(use=b'static', watch=[b'static', b'dynamic'])
+@with_beanstalkd(watch=['static', 'dynamic'])
 def test_initialize_watch_multiple(c):
-    c.put(b'c')
+    c.use('static')
+    c.put(b'haskell')
     c.put(b'rust')
-    c.use(b'dynamic')
+    c.use('dynamic')
     c.put(b'python')
-    for _ in range(3):
-        c.reserve(timeout=timedelta())
+    jid, body = c.reserve(timeout=timedelta())
+    assert body == 'haskell'
+    jid, body = c.reserve(timeout=timedelta())
+    assert body == 'rust'
+    jid, body = c.reserve(timeout=timedelta())
+    assert body == 'python'
 
 
-@with_beanstalkd()
+@with_beanstalkd(encoding=None)
+def test_binary_jobs(c):
+    with open('python-logo.png', 'rb') as f:
+        image = f.read()
+    c.put(image)
+    jid, body = c.reserve()
+    assert body == image
+
+
+@with_beanstalkd(use='default')
 def test_max_job_size(c):
     with pytest.raises(JobTooBigError):
         c.put(bytes(2**16))
@@ -134,4 +148,10 @@ def test_job_not_found(c):
 @with_beanstalkd()
 def test_not_ignored(c):
     with pytest.raises(NotIgnoredError):
-        c.ignore(b'default')
+        c.ignore('default')
+
+
+@with_beanstalkd(encoding=None)
+def test_str_body_no_encoding(c):
+    with pytest.raises(TypeError):
+        c.put('a str job')

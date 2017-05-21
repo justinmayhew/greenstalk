@@ -2,9 +2,9 @@ import socket
 from datetime import timedelta
 from typing import Any, Iterable, List, Optional, Tuple, Union
 
-from .exceptions import ERROR_REPLIES, UnexpectedDisconnectError
+from .exceptions import ERROR_REPLIES, DisconnectError
 
-DEFAULT_TUBE = b'default'
+DEFAULT_TUBE = 'default'
 DEFAULT_PRIORITY = 2**16
 DEFAULT_DELAY = timedelta()
 DEFAULT_TTR = timedelta(seconds=60)
@@ -15,15 +15,17 @@ class Client:
     def __init__(self,
                  host: str = '127.0.0.1',
                  port: int = 11300,
-                 use: bytes = DEFAULT_TUBE,
-                 watch: Union[bytes, Iterable[bytes]] = DEFAULT_TUBE) -> None:
+                 encoding: Optional[str] = 'utf-8',
+                 use: str = DEFAULT_TUBE,
+                 watch: Union[str, Iterable[str]] = DEFAULT_TUBE) -> None:
         self._sock = socket.create_connection((host, port))
         self._reader = self._sock.makefile('rb')
+        self.encoding = encoding
 
         if use != DEFAULT_TUBE:
             self.use(use)
 
-        if isinstance(watch, bytes):
+        if isinstance(watch, str):
             if watch != DEFAULT_TUBE:
                 self.watch(watch)
                 self.ignore(DEFAULT_TUBE)
@@ -49,13 +51,13 @@ class Client:
     def _read_reply(self, expected: bytes) -> List[bytes]:
         line = self._reader.readline()[:-2]
         if not line:
-            raise UnexpectedDisconnectError
+            raise DisconnectError
         reply, *args = line.split()
         if reply != expected:
             if reply in ERROR_REPLIES:
                 raise ERROR_REPLIES[reply]
             # Unknown reply, probably disconnected mid-message.
-            raise UnexpectedDisconnectError
+            raise DisconnectError
         return args
 
     def _request(self,
@@ -69,21 +71,24 @@ class Client:
     # Producer Commands
 
     def put(self,
-            body: bytes,
+            body: Union[bytes, str],
             priority: int = DEFAULT_PRIORITY,
             delay: timedelta = DEFAULT_DELAY,
             ttr: timedelta = DEFAULT_TTR) -> int:
+        if isinstance(body, str):
+            body = body.encode(self.encoding)
         args = self._request(b'put %d %d %d %d', priority,
                              delay.total_seconds(), ttr.total_seconds(),
                              len(body), body=body, expected=b'INSERTED')
         return int(args[0])
 
-    def use(self, tube: bytes) -> None:
-        self._request(b'use %b', tube, expected=b'USING')
+    def use(self, tube: str) -> None:
+        self._request(b'use %b', tube.encode('ascii'), expected=b'USING')
 
     # Consumer Commands
 
-    def reserve(self, timeout: timedelta = None) -> Tuple[int, bytes]:
+    def reserve(self,
+                timeout: timedelta = None) -> Tuple[int, Union[bytes, str]]:
         expected = b'RESERVED'
         if timeout is None:
             args = self._request(b'reserve', expected=expected)
@@ -93,7 +98,9 @@ class Client:
         size = int(args[1])
         body = self._reader.read(size + 2)[:-2]
         if len(body) != size:
-            raise UnexpectedDisconnectError
+            raise DisconnectError
+        if self.encoding is not None:
+            body = body.decode(self.encoding)
         return int(args[0]), body
 
     def delete(self, jid: int) -> None:
@@ -112,10 +119,12 @@ class Client:
     def touch(self, jid: int) -> None:
         self._request(b'touch %d', jid, expected=b'TOUCHED')
 
-    def watch(self, tube: bytes) -> int:
-        args = self._request(b'watch %b', tube, expected=b'WATCHING')
+    def watch(self, tube: str) -> int:
+        args = self._request(b'watch %b', tube.encode('ascii'),
+                             expected=b'WATCHING')
         return int(args[0])
 
-    def ignore(self, tube: bytes) -> int:
-        args = self._request(b'ignore %b', tube, expected=b'WATCHING')
+    def ignore(self, tube: str) -> int:
+        args = self._request(b'ignore %b', tube.encode('ascii'),
+                             expected=b'WATCHING')
         return int(args[0])

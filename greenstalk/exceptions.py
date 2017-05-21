@@ -66,5 +66,5 @@ ERROR_REPLIES = {
 }
 
 
-class UnexpectedDisconnectError(Error):
+class DisconnectError(Error):
     pass
