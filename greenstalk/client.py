@@ -79,7 +79,7 @@ class Client:
         return int(args[0])
 
     def use(self, tube: bytes) -> None:
-        self._request(b'use %s', tube, expected=b'USING')
+        self._request(b'use %b', tube, expected=b'USING')
 
     # Consumer Commands
 
@@ -113,9 +113,9 @@ class Client:
         self._request(b'touch %d', jid, expected=b'TOUCHED')
 
     def watch(self, tube: bytes) -> int:
-        args = self._request(b'watch %s', tube, expected=b'WATCHING')
+        args = self._request(b'watch %b', tube, expected=b'WATCHING')
         return int(args[0])
 
     def ignore(self, tube: bytes) -> int:
-        args = self._request(b'ignore %s', tube, expected=b'WATCHING')
+        args = self._request(b'ignore %b', tube, expected=b'WATCHING')
         return int(args[0])
