@@ -2,24 +2,22 @@ import subprocess
 import time
 from contextlib import closing
 from datetime import datetime, timedelta
+from typing import Any, Callable
 
 import pytest
 
 from greenstalk import Client
 from greenstalk.exceptions import (
-    DeadlineSoonError,
-    JobTooBigError,
-    NotFoundError,
-    NotIgnoredError,
-    TimedOutError,
+    DeadlineSoonError, JobTooBigError, NotFoundError, NotIgnoredError,
+    TimedOutError
 )
 
 TEST_PORT = 4444
 
 
-def with_beanstalkd(**kwargs):
-    def decorator(test):
-        def wrapper():
+def with_beanstalkd(**kwargs: Any) -> Callable:
+    def decorator(test: Callable) -> Callable:
+        def wrapper() -> None:
             args = ('beanstalkd', '-l', '127.0.0.1', '-p', str(TEST_PORT))
             beanstalkd = subprocess.Popen(args)
             time.sleep(0.01)
@@ -34,7 +32,7 @@ def with_beanstalkd(**kwargs):
 
 
 @with_beanstalkd()
-def test_basic_usage(c):
+def test_basic_usage(c: Client) -> None:
     c.use('emails')
     put_jid = c.put('测试@example.com')
     c.watch('emails')
@@ -46,7 +44,7 @@ def test_basic_usage(c):
 
 
 @with_beanstalkd()
-def test_put_priority(c):
+def test_put_priority(c: Client) -> None:
     c.put('2', priority=2)
     c.put('1', priority=1)
     _, body = c.reserve()
@@ -56,7 +54,7 @@ def test_put_priority(c):
 
 
 @with_beanstalkd()
-def test_delays(c):
+def test_delays(c: Client) -> None:
     c.put('delayed', delay=timedelta(seconds=1))
     before = datetime.now()
     jid, body = c.reserve()
@@ -72,7 +70,7 @@ def test_delays(c):
 
 
 @with_beanstalkd()
-def test_ttr(c):
+def test_ttr(c: Client) -> None:
     c.put('two second ttr', ttr=timedelta(seconds=2))
     before = datetime.now()
     jid, _ = c.reserve()
@@ -88,7 +86,7 @@ def test_ttr(c):
 
 
 @with_beanstalkd()
-def test_reserve_raises_on_timeout(c):
+def test_reserve_raises_on_timeout(c: Client) -> None:
     before = datetime.now()
     with pytest.raises(TimedOutError):
         c.reserve(timeout=timedelta(seconds=1))
@@ -98,7 +96,7 @@ def test_reserve_raises_on_timeout(c):
 
 
 @with_beanstalkd(use='hosts', watch='hosts')
-def test_initialize_with_tubes(c):
+def test_initialize_with_tubes(c: Client) -> None:
     c.put('www.example.com')
     jid, body = c.reserve()
     assert body == 'www.example.com'
@@ -110,7 +108,7 @@ def test_initialize_with_tubes(c):
 
 
 @with_beanstalkd(watch=['static', 'dynamic'])
-def test_initialize_watch_multiple(c):
+def test_initialize_watch_multiple(c: Client) -> None:
     c.use('static')
     c.put(b'haskell')
     c.put(b'rust')
@@ -125,7 +123,7 @@ def test_initialize_watch_multiple(c):
 
 
 @with_beanstalkd(encoding=None)
-def test_binary_jobs(c):
+def test_binary_jobs(c: Client) -> None:
     with open('python-logo.png', 'rb') as f:
         image = f.read()
     c.put(image)
@@ -134,24 +132,24 @@ def test_binary_jobs(c):
 
 
 @with_beanstalkd(use='default')
-def test_max_job_size(c):
+def test_max_job_size(c: Client) -> None:
     with pytest.raises(JobTooBigError):
         c.put(bytes(2**16))
 
 
 @with_beanstalkd()
-def test_job_not_found(c):
+def test_job_not_found(c: Client) -> None:
     with pytest.raises(NotFoundError):
         c.delete(87)
 
 
 @with_beanstalkd()
-def test_not_ignored(c):
+def test_not_ignored(c: Client) -> None:
     with pytest.raises(NotIgnoredError):
         c.ignore('default')
 
 
 @with_beanstalkd(encoding=None)
-def test_str_body_no_encoding(c):
+def test_str_body_no_encoding(c: Client) -> None:
     with pytest.raises(TypeError):
         c.put('a str job')

@@ -64,7 +64,3 @@ ERROR_REPLIES = {
     b'TIMED_OUT':       TimedOutError,
     b'UNKNOWN_COMMAND': UnknownCommandError,
 }
-
-
-class DisconnectError(Error):
-    pass

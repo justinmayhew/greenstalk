@@ -1,8 +1,8 @@
 import socket
 from datetime import timedelta
-from typing import Any, Iterable, List, Optional, Tuple, Union
+from typing import Iterable, List, Optional, Tuple, Union
 
-from .exceptions import ERROR_REPLIES, DisconnectError
+from .exceptions import ERROR_REPLIES
 
 DEFAULT_TUBE = 'default'
 DEFAULT_PRIORITY = 2**16
@@ -35,13 +35,13 @@ class Client:
             if DEFAULT_TUBE not in watch:
                 self.ignore(DEFAULT_TUBE)
 
-    def close(self):
+    def close(self) -> None:
         self._reader.close()
         self._sock.close()
 
     def _send_command(self,
                       line: bytes,
-                      *args: Any,
+                      *args: Union[bytes, int, float],
                       body: Optional[bytes] = None) -> None:
         command = (line + b'\r\n') % args
         if body is not None:
@@ -51,18 +51,17 @@ class Client:
     def _read_reply(self, expected: bytes) -> List[bytes]:
         line = self._reader.readline()[:-2]
         if not line:
-            raise DisconnectError
+            raise ConnectionError("Connection closed while reading reply")
         reply, *args = line.split()
         if reply != expected:
             if reply in ERROR_REPLIES:
                 raise ERROR_REPLIES[reply]
-            # Unknown reply, probably disconnected mid-message.
-            raise DisconnectError
+            raise ConnectionError("Unknown reply from server: %r" % reply)
         return args
 
     def _request(self,
                  line: bytes,
-                 *args: Any,
+                 *args: Union[bytes, int, float],
                  body: Optional[bytes] = None,
                  expected: bytes) -> List[bytes]:
         self._send_command(line, *args, body=body)
@@ -76,6 +75,8 @@ class Client:
             delay: timedelta = DEFAULT_DELAY,
             ttr: timedelta = DEFAULT_TTR) -> int:
         if isinstance(body, str):
+            if self.encoding is None:
+                raise TypeError("Unable to encode string with no encoding set")
             body = body.encode(self.encoding)
         args = self._request(b'put %d %d %d %d', priority,
                              delay.total_seconds(), ttr.total_seconds(),
@@ -98,7 +99,7 @@ class Client:
         size = int(args[1])
         body = self._reader.read(size + 2)[:-2]
         if len(body) != size:
-            raise DisconnectError
+            raise ConnectionError("Unable to read entire job body")
         if self.encoding is not None:
             body = body.decode(self.encoding)
         return int(args[0]), body
