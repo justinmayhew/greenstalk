@@ -11,6 +11,7 @@ DEFAULT_TTR = timedelta(seconds=60)
 
 
 class Client:
+    """Client implementation of the beanstalk protocol."""
 
     def __init__(self,
                  host: str = '127.0.0.1',
@@ -18,6 +19,7 @@ class Client:
                  encoding: Optional[str] = 'utf-8',
                  use: str = DEFAULT_TUBE,
                  watch: Union[str, Iterable[str]] = DEFAULT_TUBE) -> None:
+        """Configure the client and connect to beanstalkd."""
         self._sock = socket.create_connection((host, port))
         self._reader = self._sock.makefile('rb')
         self.encoding = encoding
@@ -36,6 +38,7 @@ class Client:
                 self.ignore(DEFAULT_TUBE)
 
     def close(self) -> None:
+        """Close the connection to beanstalkd."""
         self._reader.close()
         self._sock.close()
 
@@ -74,6 +77,7 @@ class Client:
             priority: int = DEFAULT_PRIORITY,
             delay: timedelta = DEFAULT_DELAY,
             ttr: timedelta = DEFAULT_TTR) -> int:
+        """Enqueue a job into the currently used tube."""
         if isinstance(body, str):
             if self.encoding is None:
                 raise TypeError("Unable to encode string with no encoding set")
@@ -84,12 +88,18 @@ class Client:
         return int(args[0])
 
     def use(self, tube: str) -> None:
+        """
+        Change the currently used tube.
+
+        Future put commands will enqueue into the currently used tube.
+        """
         self._request(b'use %b', tube.encode('ascii'), expected=b'USING')
 
     # Consumer Commands
 
     def reserve(self,
                 timeout: timedelta = None) -> Tuple[int, Union[bytes, str]]:
+        """Dequeue a job from a tube on the watch list."""
         expected = b'RESERVED'
         if timeout is None:
             args = self._request(b'reserve', expected=expected)
@@ -105,27 +115,43 @@ class Client:
         return int(args[0]), body
 
     def delete(self, jid: int) -> None:
+        """Delete a job to signal that the associated work is complete."""
         self._request(b'delete %d', jid, expected=b'DELETED')
 
     def release(self,
                 jid: int,
                 priority: int = DEFAULT_PRIORITY,
                 delay: timedelta = DEFAULT_DELAY) -> None:
+        """
+        Release a reserved job back into the ready queue.
+
+        This signals that the associated work is incomplete. Consumers will be
+        able to reserve and retry the job.
+        """
         self._request(b'release %d %d %d', jid, priority,
                       delay.total_seconds(), expected=b'RELEASED')
 
     def bury(self, jid: int, priority: int = DEFAULT_PRIORITY) -> None:
+        """Put a job into the buried FIFO until it's kicked."""
         self._request(b'bury %d %d', jid, priority, expected=b'BURIED')
 
     def touch(self, jid: int) -> None:
+        """Request additional time to complete a job."""
         self._request(b'touch %d', jid, expected=b'TOUCHED')
 
     def watch(self, tube: str) -> int:
+        """
+        Add a tube to the watch list.
+
+        Future reserve commands will dequeue jobs from any tube on the watch
+        list.
+        """
         args = self._request(b'watch %b', tube.encode('ascii'),
                              expected=b'WATCHING')
         return int(args[0])
 
     def ignore(self, tube: str) -> int:
+        """Remove a tube from the watch list."""
         args = self._request(b'ignore %b', tube.encode('ascii'),
                              expected=b'WATCHING')
         return int(args[0])
