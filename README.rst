@@ -34,5 +34,6 @@ Quickstart
 Resources
 ---------
 
+- `beanstalkd FAQ <https://github.com/kr/beanstalkd/wiki/faq>`_
 - `Protocol documentation
   <https://raw.githubusercontent.com/kr/beanstalkd/master/doc/protocol.txt>`_
