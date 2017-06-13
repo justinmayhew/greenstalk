@@ -8,27 +8,39 @@ import pytest
 
 from greenstalk import Client
 from greenstalk.exceptions import (
-    DeadlineSoonError, JobTooBigError, NotFoundError, NotIgnoredError,
-    TimedOutError
+    BuriedError, DeadlineSoonError, JobTooBigError, NotFoundError,
+    NotIgnoredError, TimedOutError, UnknownResponseError
 )
 
 TEST_PORT = 4444
 
 
-def with_beanstalkd(**kwargs: Any) -> Callable:
-    def decorator(test: Callable) -> Callable:
-        def wrapper() -> None:
-            args = ('beanstalkd', '-l', '127.0.0.1', '-p', str(TEST_PORT))
-            beanstalkd = subprocess.Popen(args)
-            time.sleep(0.01)
-            try:
-                with closing(Client(port=TEST_PORT, **kwargs)) as c:
-                    test(c)
-            finally:
-                beanstalkd.terminate()
-                beanstalkd.wait()
-        return wrapper
-    return decorator
+def with_subprocess(*cli: Any) -> Callable:
+    def configuration(**kwargs: Any) -> Callable:
+        def decorator(test: Callable) -> Callable:
+            def wrapper() -> None:
+                cmdline = list(cli)
+                try:
+                    response = kwargs.pop('response')
+                except KeyError:
+                    pass
+                else:
+                    cmdline.append(response)
+                process = subprocess.Popen(cmdline)
+                time.sleep(0.1)
+                try:
+                    with closing(Client(port=TEST_PORT, **kwargs)) as c:
+                        test(c)
+                finally:
+                    process.terminate()
+                    process.wait()
+            return wrapper
+        return decorator
+    return configuration
+
+
+with_beanstalkd = with_subprocess('beanstalkd', '-l', '127.0.0.1', '-p', str(TEST_PORT))
+with_fake = with_subprocess('scripts/fake-response', str(TEST_PORT))
 
 
 @with_beanstalkd()
@@ -153,3 +165,45 @@ def test_not_ignored(c: Client) -> None:
 def test_str_body_no_encoding(c: Client) -> None:
     with pytest.raises(TypeError):
         c.put('a str job')
+
+
+@with_fake(response='BURIED 10\r\n')
+def test_put_buried_error(c: Client) -> None:
+    with pytest.raises(BuriedError) as e:
+        c.put('hello')
+    assert e.value.jid == 10
+
+
+@with_fake(response='BURIED\r\n')
+def test_release_buried_error(c: Client) -> None:
+    with pytest.raises(BuriedError) as e:
+        c.release(1)
+    assert e.value.jid is None
+
+
+@with_fake(response='FOO 1 2 3\r\n')
+def test_unknown_response_error(c: Client) -> None:
+    with pytest.raises(UnknownResponseError) as e:
+        c.reserve()
+    assert e.value.status == b'FOO'
+    assert e.value.values == [b'1', b'2', b'3']
+
+
+@with_fake(response='RESERVED 1 4\r\nABC\r\n')
+def test_eof_error(c: Client) -> None:
+    with pytest.raises(ConnectionError) as e:
+        c.reserve()
+    assert e.value.args[0] == "Unexpected EOF reading job body"
+
+
+@with_fake(response='USING a')
+def test_response_missing_crlf(c: Client) -> None:
+    with pytest.raises(AssertionError):
+        c.use('a')
+
+
+@with_fake(response='')
+def test_unexpected_eof(c: Client) -> None:
+    with pytest.raises(ConnectionError) as e:
+        c.reserve()
+    assert e.value.args[0] == "Unexpected EOF"

@@ -1,0 +1,38 @@
+#!/usr/bin/env python3
+import socket
+import sys
+
+
+def main(port, response):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind(('127.0.0.1', port))
+    sock.listen()
+
+    conn, _ = sock.accept()
+    f = conn.makefile('rb')
+
+    line = f.readline()[:-2]
+    if not line:
+        return
+
+    cmd, *args = line.split()
+
+    if cmd == b'put':
+        size = int(args[-1])
+        f.read(size)
+        assert f.read(2) == b'\r\n'
+
+    conn.sendall(response)
+
+
+if __name__ == '__main__':
+    if len(sys.argv) != 3:
+        prog = sys.argv[0]
+        print("Usage: {} <port> <response>".format(prog), file=sys.stderr)
+        sys.exit(1)
+
+    port = int(sys.argv[1])
+    response = sys.argv[2].encode('ascii')
+
+    main(port, response)

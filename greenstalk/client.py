@@ -1,8 +1,10 @@
 import socket
 from datetime import timedelta
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import BinaryIO, Iterable, List, Optional, Tuple, Union
 
-from .exceptions import ERROR_REPLIES
+from .exceptions import ERROR_RESPONSES, UnknownResponseError
+
+Body = Union[bytes, str]
 
 DEFAULT_TUBE = 'default'
 DEFAULT_PRIORITY = 2**16
@@ -21,7 +23,7 @@ class Client:
                  watch: Union[str, Iterable[str]] = DEFAULT_TUBE) -> None:
         """Configure the client and connect to beanstalkd."""
         self._sock = socket.create_connection((host, port))
-        self._reader = self._sock.makefile('rb')
+        self._reader = self._sock.makefile('rb')  # type: BinaryIO
         self.encoding = encoding
 
         if use != DEFAULT_TUBE:
@@ -42,38 +44,30 @@ class Client:
         self._reader.close()
         self._sock.close()
 
-    def _send_command(self,
-                      line: bytes,
-                      *args: Union[bytes, int, float],
-                      body: Optional[bytes] = None) -> None:
-        command = (line + b'\r\n') % args
-        if body is not None:
-            command = command + body + b'\r\n'
-        self._sock.sendall(command)
+    def _send_cmd(self, cmd: bytes, expected: bytes) -> List[bytes]:
+        self._sock.sendall(cmd + b'\r\n')
 
-    def _read_reply(self, expected: bytes) -> List[bytes]:
-        line = self._reader.readline()[:-2]
+        line = self._reader.readline()
         if not line:
-            raise ConnectionError("Connection closed while reading reply")
-        reply, *args = line.split()
-        if reply != expected:
-            if reply in ERROR_REPLIES:
-                raise ERROR_REPLIES[reply]
-            raise ConnectionError("Unknown reply from server: %r" % reply)
-        return args
+            raise ConnectionError("Unexpected EOF")
 
-    def _request(self,
-                 line: bytes,
-                 *args: Union[bytes, int, float],
-                 body: Optional[bytes] = None,
-                 expected: bytes) -> List[bytes]:
-        self._send_command(line, *args, body=body)
-        return self._read_reply(expected)
+        assert line[-2:] == b'\r\n'
+        line = line[:-2]
+
+        status, *values = line.split()
+
+        if status == expected:
+            return values
+
+        if status in ERROR_RESPONSES:
+            raise ERROR_RESPONSES[status](values)
+
+        raise UnknownResponseError(status, values)
 
     # Producer Commands
 
     def put(self,
-            body: Union[bytes, str],
+            body: Body,
             priority: int = DEFAULT_PRIORITY,
             delay: timedelta = DEFAULT_DELAY,
             ttr: timedelta = DEFAULT_TTR) -> int:
@@ -82,10 +76,16 @@ class Client:
             if self.encoding is None:
                 raise TypeError("Unable to encode string with no encoding set")
             body = body.encode(self.encoding)
-        args = self._request(b'put %d %d %d %d', priority,
-                             delay.total_seconds(), ttr.total_seconds(),
-                             len(body), body=body, expected=b'INSERTED')
-        return int(args[0])
+
+        cmd = b'put %d %d %d %d\r\n%b' % (
+            priority,
+            delay.total_seconds(),
+            ttr.total_seconds(),
+            len(body),
+            body,
+        )
+        values = self._send_cmd(cmd, b'INSERTED')
+        return int(values[0])
 
     def use(self, tube: str) -> None:
         """
@@ -93,30 +93,35 @@ class Client:
 
         Future put commands will enqueue into the currently used tube.
         """
-        self._request(b'use %b', tube.encode('ascii'), expected=b'USING')
+        cmd = b'use %b' % tube.encode('ascii')
+        self._send_cmd(cmd, b'USING')
 
     # Consumer Commands
 
-    def reserve(self,
-                timeout: timedelta = None) -> Tuple[int, Union[bytes, str]]:
+    def reserve(self, timeout: timedelta = None) -> Tuple[int, Body]:
         """Dequeue a job from a tube on the watch list."""
-        expected = b'RESERVED'
         if timeout is None:
-            args = self._request(b'reserve', expected=expected)
+            cmd = b'reserve'
         else:
-            args = self._request(b'reserve-with-timeout %d',
-                                 timeout.total_seconds(), expected=expected)
-        size = int(args[1])
-        body = self._reader.read(size + 2)[:-2]
-        if len(body) != size:
-            raise ConnectionError("Unable to read entire job body")
+            cmd = b'reserve-with-timeout %d' % timeout.total_seconds()
+        values = self._send_cmd(cmd, b'RESERVED')
+
+        size = int(values[1])
+        data = self._reader.read(size + 2)[:-2]
+        if len(data) != size:
+            raise ConnectionError("Unexpected EOF reading job body")
+
         if self.encoding is not None:
-            body = body.decode(self.encoding)
-        return int(args[0]), body
+            body = data.decode(self.encoding)  # type: Body
+        else:
+            body = data
+
+        return int(values[0]), body
 
     def delete(self, jid: int) -> None:
         """Delete a job to signal that the associated work is complete."""
-        self._request(b'delete %d', jid, expected=b'DELETED')
+        cmd = b'delete %d' % jid
+        self._send_cmd(cmd, b'DELETED')
 
     def release(self,
                 jid: int,
@@ -128,16 +133,18 @@ class Client:
         This signals that the associated work is incomplete. Consumers will be
         able to reserve and retry the job.
         """
-        self._request(b'release %d %d %d', jid, priority,
-                      delay.total_seconds(), expected=b'RELEASED')
+        cmd = b'release %d %d %d' % (jid, priority, delay.total_seconds())
+        self._send_cmd(cmd, b'RELEASED')
 
     def bury(self, jid: int, priority: int = DEFAULT_PRIORITY) -> None:
         """Put a job into the buried FIFO until it's kicked."""
-        self._request(b'bury %d %d', jid, priority, expected=b'BURIED')
+        cmd = b'bury %d %d' % (jid, priority)
+        self._send_cmd(cmd, b'BURIED')
 
     def touch(self, jid: int) -> None:
         """Request additional time to complete a job."""
-        self._request(b'touch %d', jid, expected=b'TOUCHED')
+        cmd = b'touch %d' % jid
+        self._send_cmd(cmd, b'TOUCHED')
 
     def watch(self, tube: str) -> int:
         """
@@ -146,12 +153,12 @@ class Client:
         Future reserve commands will dequeue jobs from any tube on the watch
         list.
         """
-        args = self._request(b'watch %b', tube.encode('ascii'),
-                             expected=b'WATCHING')
-        return int(args[0])
+        cmd = b'watch %b' % tube.encode('ascii')
+        values = self._send_cmd(cmd, b'WATCHING')
+        return int(values[0])
 
     def ignore(self, tube: str) -> int:
         """Remove a tube from the watch list."""
-        args = self._request(b'ignore %b', tube.encode('ascii'),
-                             expected=b'WATCHING')
-        return int(args[0])
+        cmd = b'ignore %b' % tube.encode('ascii')
+        values = self._send_cmd(cmd, b'WATCHING')
+        return int(values[0])

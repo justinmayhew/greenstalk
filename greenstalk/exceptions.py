@@ -1,56 +1,68 @@
+from typing import List, Optional
+
+
 class Error(Exception):
     pass
 
 
-class BadFormatError(Error):
+class BeanstalkdError(Error):
+    """An error read from a beanstalkd response."""
+
+
+class BadFormatError(BeanstalkdError):
     pass
 
 
-class BuriedError(Error):
+class BuriedError(BeanstalkdError):
+
+    def __init__(self, values: List[bytes] = None) -> None:
+        if values:
+            self.jid = int(values[0])  # type: Optional[int]
+        else:
+            self.jid = None
+
+
+class DeadlineSoonError(BeanstalkdError):
     pass
 
 
-class DeadlineSoonError(Error):
+class DrainingError(BeanstalkdError):
     pass
 
 
-class DrainingError(Error):
+class ExpectedCrlfError(BeanstalkdError):
     pass
 
 
-class ExpectedCrlfError(Error):
+class InternalError(BeanstalkdError):
     pass
 
 
-class InternalError(Error):
+class JobTooBigError(BeanstalkdError):
     pass
 
 
-class JobTooBigError(Error):
+class NotFoundError(BeanstalkdError):
     pass
 
 
-class NotFoundError(Error):
+class NotIgnoredError(BeanstalkdError):
     pass
 
 
-class NotIgnoredError(Error):
+class OutOfMemoryError(BeanstalkdError):
     pass
 
 
-class OutOfMemoryError(Error):
+class TimedOutError(BeanstalkdError):
     pass
 
 
-class TimedOutError(Error):
+class UnknownCommandError(BeanstalkdError):
     pass
 
 
-class UnknownCommandError(Error):
-    pass
-
-
-ERROR_REPLIES = {
+ERROR_RESPONSES = {
     b'BAD_FORMAT':      BadFormatError,
     b'BURIED':          BuriedError,
     b'DEADLINE_SOON':   DeadlineSoonError,
@@ -64,3 +76,10 @@ ERROR_REPLIES = {
     b'TIMED_OUT':       TimedOutError,
     b'UNKNOWN_COMMAND': UnknownCommandError,
 }
+
+
+class UnknownResponseError(Error):
+
+    def __init__(self, status: bytes, values: List[bytes]) -> None:
+        self.status = status
+        self.values = values
