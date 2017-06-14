@@ -233,7 +233,7 @@ def _parse_simple_yaml(buf: bytes) -> Stats:
 
     stats = {}
     for line in data.splitlines():
-        key, value = line.split(': ')  # type: Tuple[str, Union[str, int]]
+        key, value = line.split(': ', 1)  # type: Tuple[str, Union[str, int]]
         try:
             value = int(value)
         except ValueError:
