@@ -6,12 +6,11 @@ from typing import Any, Callable
 
 import pytest
 
-from greenstalk import Client
-from greenstalk.client import DEFAULT_PRIORITY, DEFAULT_TTR
-from greenstalk.exceptions import (
-    BuriedError, DeadlineSoonError, JobTooBigError, NotFoundError,
+from greenstalk import (
+    BuriedError, Client, DeadlineSoonError, JobTooBigError, NotFoundError,
     NotIgnoredError, TimedOutError, UnknownResponseError
 )
+from greenstalk.client import DEFAULT_PRIORITY, DEFAULT_TTR
 
 TEST_PORT = 4444
 
