@@ -1,4 +1,3 @@
-import socket
 import subprocess
 import time
 from contextlib import closing
@@ -314,7 +313,7 @@ def test_stats(c: Client) -> None:
     assert s['binlog-records-written'] == 0
     assert 'binlog-max-size' in s
     assert 'id' in s
-    assert s['hostname'] == socket.getfqdn()
+    assert 'hostname' in s
 
 
 @with_beanstalkd(use='default')
