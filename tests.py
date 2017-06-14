@@ -1,3 +1,4 @@
+import socket
 import subprocess
 import time
 from contextlib import closing
@@ -7,6 +8,7 @@ from typing import Any, Callable
 import pytest
 
 from greenstalk import Client
+from greenstalk.client import DEFAULT_PRIORITY, DEFAULT_TTR
 from greenstalk.exceptions import (
     BuriedError, DeadlineSoonError, JobTooBigError, NotFoundError,
     NotIgnoredError, TimedOutError, UnknownResponseError
@@ -219,6 +221,100 @@ def test_kick_job(c: Client) -> None:
     jid = c.put('a delayed job', delay=timedelta(hours=1))
     c.kick_job(jid)
     c.reserve(timeout=timedelta())
+
+
+@with_beanstalkd()
+def test_stats_job(c: Client) -> None:
+    jid = c.put('job')
+    assert c.stats_job(jid) == {
+        'id': 1,
+        'tube': 'default',
+        'state': 'ready',
+        'pri': DEFAULT_PRIORITY,
+        'age': 0,
+        'delay': 0,
+        'ttr': DEFAULT_TTR.total_seconds(),
+        'time-left': 0,
+        'file': 0,
+        'reserves': 0,
+        'timeouts': 0,
+        'releases': 0,
+        'buries': 0,
+        'kicks': 0,
+    }
+
+
+@with_beanstalkd(use='foo')
+def test_stats_tube(c: Client) -> None:
+    assert c.stats_tube('default') == {
+        'name': 'default',
+        'current-jobs-urgent': 0,
+        'current-jobs-ready': 0,
+        'current-jobs-reserved': 0,
+        'current-jobs-delayed': 0,
+        'current-jobs-buried': 0,
+        'total-jobs': 0,
+        'current-using': 0,
+        'current-watching': 1,
+        'current-waiting': 0,
+        'cmd-delete': 0,
+        'cmd-pause-tube': 0,
+        'pause': 0,
+        'pause-time-left': 0,
+    }
+
+
+@with_beanstalkd()
+def test_stats(c: Client) -> None:
+    s = c.stats()
+    assert s['current-jobs-urgent'] == 0
+    assert s['current-jobs-ready'] == 0
+    assert s['current-jobs-reserved'] == 0
+    assert s['current-jobs-delayed'] == 0
+    assert s['current-jobs-buried'] == 0
+    assert s['cmd-put'] == 0
+    assert s['cmd-peek'] == 0
+    assert s['cmd-peek-ready'] == 0
+    assert s['cmd-peek-delayed'] == 0
+    assert s['cmd-peek-buried'] == 0
+    assert s['cmd-reserve'] == 0
+    assert s['cmd-reserve-with-timeout'] == 0
+    assert s['cmd-delete'] == 0
+    assert s['cmd-release'] == 0
+    assert s['cmd-use'] == 0
+    assert s['cmd-watch'] == 0
+    assert s['cmd-ignore'] == 0
+    assert s['cmd-bury'] == 0
+    assert s['cmd-kick'] == 0
+    assert s['cmd-touch'] == 0
+    assert s['cmd-stats'] == 1
+    assert s['cmd-stats-job'] == 0
+    assert s['cmd-stats-tube'] == 0
+    assert s['cmd-list-tubes'] == 0
+    assert s['cmd-list-tube-used'] == 0
+    assert s['cmd-list-tubes-watched'] == 0
+    assert s['cmd-pause-tube'] == 0
+    assert s['job-timeouts'] == 0
+    assert s['total-jobs'] == 0
+    assert 'max-job-size' in s
+    assert s['current-tubes'] == 1
+    assert s['current-connections'] == 1
+    assert s['current-producers'] == 0
+    assert s['current-workers'] == 0
+    assert s['current-waiting'] == 0
+    assert s['total-connections'] == 1
+    assert 'pid' in s
+    assert 'version' in s
+    assert 'rusage-utime' in s
+    assert 'rusage-stime' in s
+    assert s['uptime'] == 0
+    assert s['binlog-oldest-index'] == 0
+    assert s['binlog-current-index'] == 0
+    assert s['binlog-records-migrated'] == 0
+    assert s['binlog-records-written'] == 0
+    assert 'binlog-max-size' in s
+    assert 'id' in s
+    assert s['hostname'] == socket.getfqdn()
 
 
 @with_beanstalkd(use='default')

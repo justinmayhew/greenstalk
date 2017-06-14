@@ -1,10 +1,11 @@
 import socket
 from datetime import timedelta
-from typing import BinaryIO, Iterable, List, Optional, Tuple, Union
+from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
 
 from .exceptions import ERROR_RESPONSES, UnknownResponseError
 
 Body = Union[bytes, str]
+Stats = Dict[str, Union[str, int]]
 
 DEFAULT_TUBE = 'default'
 DEFAULT_PRIORITY = 2**16
@@ -204,3 +205,39 @@ class Client:
     def kick_job(self, jid: int) -> None:
         cmd = b'kick-job %d' % jid
         self._send_cmd(cmd, b'KICKED')
+
+    def stats_job(self, jid: int) -> Stats:
+        cmd = b'stats-job %d' % jid
+        values = self._send_cmd(cmd, b'OK')
+        data = self._read_data(int(values[0]))
+        return _parse_simple_yaml(data)
+
+    def stats_tube(self, tube: str) -> Stats:
+        cmd = b'stats-tube %b' % tube.encode('ascii')
+        values = self._send_cmd(cmd, b'OK')
+        data = self._read_data(int(values[0]))
+        return _parse_simple_yaml(data)
+
+    def stats(self) -> Stats:
+        cmd = b'stats'
+        values = self._send_cmd(cmd, b'OK')
+        data = self._read_data(int(values[0]))
+        return _parse_simple_yaml(data)
+
+
+def _parse_simple_yaml(buf: bytes) -> Stats:
+    data = buf.decode('ascii')
+
+    assert data[:4] == '---\n'
+    data = data[4:]  # strip YAML head
+
+    stats = {}
+    for line in data.splitlines():
+        key, value = line.split(': ')  # type: Tuple[str, Union[str, int]]
+        try:
+            value = int(value)
+        except ValueError:
+            pass
+        stats[key] = value
+
+    return stats
