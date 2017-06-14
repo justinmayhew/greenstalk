@@ -64,6 +64,30 @@ class Client:
 
         raise UnknownResponseError(status, values)
 
+    def _read_data(self, size: int) -> bytes:
+        data = self._reader.read(size + 2)
+
+        assert data[-2:] == b'\r\n'
+        data = data[:-2]
+
+        if len(data) != size:
+            raise ConnectionError("Unexpected EOF reading chunk")
+
+        return data
+
+    def _read_job(self, values: List[bytes]) -> Tuple[int, Body]:
+        assert len(values) == 2
+        jid = int(values[0])
+        size = int(values[1])
+
+        body = self._read_data(size)
+        return jid, self._decode_body(body)
+
+    def _decode_body(self, body: bytes) -> Body:
+        if self.encoding is not None:
+            return body.decode(self.encoding)
+        return body
+
     # Producer Commands
 
     def put(self,
@@ -105,18 +129,7 @@ class Client:
         else:
             cmd = b'reserve-with-timeout %d' % timeout.total_seconds()
         values = self._send_cmd(cmd, b'RESERVED')
-
-        size = int(values[1])
-        data = self._reader.read(size + 2)[:-2]
-        if len(data) != size:
-            raise ConnectionError("Unexpected EOF reading job body")
-
-        if self.encoding is not None:
-            body = data.decode(self.encoding)  # type: Body
-        else:
-            body = data
-
-        return int(values[0]), body
+        return self._read_job(values)
 
     def delete(self, jid: int) -> None:
         """Delete a job to signal that the associated work is complete."""
@@ -162,3 +175,23 @@ class Client:
         cmd = b'ignore %b' % tube.encode('ascii')
         values = self._send_cmd(cmd, b'WATCHING')
         return int(values[0])
+
+    def peek(self, jid: int) -> Tuple[int, Body]:
+        cmd = b'peek %d' % jid
+        values = self._send_cmd(cmd, b'FOUND')
+        return self._read_job(values)
+
+    def peek_ready(self) -> Tuple[int, Body]:
+        cmd = b'peek-ready'
+        values = self._send_cmd(cmd, b'FOUND')
+        return self._read_job(values)
+
+    def peek_delayed(self) -> Tuple[int, Body]:
+        cmd = b'peek-delayed'
+        values = self._send_cmd(cmd, b'FOUND')
+        return self._read_job(values)
+
+    def peek_buried(self) -> Tuple[int, Body]:
+        cmd = b'peek-buried'
+        values = self._send_cmd(cmd, b'FOUND')
+        return self._read_job(values)

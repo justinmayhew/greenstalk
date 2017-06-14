@@ -143,6 +143,66 @@ def test_binary_jobs(c: Client) -> None:
     assert body == image
 
 
+@with_beanstalkd()
+def test_peek(c: Client) -> None:
+    put_jid = c.put('job')
+    peek_jid, body = c.peek(put_jid)
+    assert put_jid == peek_jid
+    assert body == 'job'
+
+
+@with_beanstalkd()
+def test_peek_not_found(c: Client) -> None:
+    with pytest.raises(NotFoundError):
+        c.peek(111)
+
+
+@with_beanstalkd()
+def test_peek_ready(c: Client) -> None:
+    put_jid = c.put('ready')
+    peek_jid, body = c.peek_ready()
+    assert put_jid == peek_jid
+    assert body == 'ready'
+
+
+@with_beanstalkd()
+def test_peek_ready_not_found(c: Client) -> None:
+    c.put('delayed', delay=timedelta(seconds=10))
+    with pytest.raises(NotFoundError):
+        c.peek_ready()
+
+
+@with_beanstalkd()
+def test_peek_delayed(c: Client) -> None:
+    put_jid = c.put('delayed', delay=timedelta(seconds=10))
+    peek_jid, body = c.peek_delayed()
+    assert put_jid == peek_jid
+    assert body == 'delayed'
+
+
+@with_beanstalkd()
+def test_peek_delayed_not_found(c: Client) -> None:
+    with pytest.raises(NotFoundError):
+        c.peek_delayed()
+
+
+@with_beanstalkd()
+def test_peek_buried(c: Client) -> None:
+    put_jid = c.put('buried')
+    jid, _ = c.reserve()
+    c.bury(jid)
+    peek_jid, body = c.peek_buried()
+    assert put_jid == peek_jid
+    assert body == 'buried'
+
+
+@with_beanstalkd()
+def test_peek_buried_not_found(c: Client) -> None:
+    c.put('a ready job')
+    with pytest.raises(NotFoundError):
+        c.peek_buried()
+
+
 @with_beanstalkd(use='default')
 def test_max_job_size(c: Client) -> None:
     with pytest.raises(JobTooBigError):
@@ -193,7 +253,7 @@ def test_unknown_response_error(c: Client) -> None:
 def test_eof_error(c: Client) -> None:
     with pytest.raises(ConnectionError) as e:
         c.reserve()
-    assert e.value.args[0] == "Unexpected EOF reading job body"
+    assert e.value.args[0] == "Unexpected EOF reading chunk"
 
 
 @with_fake(response='USING a')
