@@ -203,6 +203,24 @@ def test_peek_buried_not_found(c: Client) -> None:
         c.peek_buried()
 
 
+@with_beanstalkd()
+def test_kick(c: Client) -> None:
+    c.put('a delayed job', delay=timedelta(hours=1))
+    c.put('another delayed job', delay=timedelta(hours=1))
+    c.put('a ready job')
+    jid, _ = c.reserve()
+    c.bury(jid)
+    assert c.kick(10) == 1
+    assert c.kick(10) == 2
+
+
+@with_beanstalkd()
+def test_kick_job(c: Client) -> None:
+    jid = c.put('a delayed job', delay=timedelta(hours=1))
+    c.kick_job(jid)
+    c.reserve(timeout=timedelta())
+
+
 @with_beanstalkd(use='default')
 def test_max_job_size(c: Client) -> None:
     with pytest.raises(JobTooBigError):

@@ -195,3 +195,12 @@ class Client:
         cmd = b'peek-buried'
         values = self._send_cmd(cmd, b'FOUND')
         return self._read_job(values)
+
+    def kick(self, bound: int) -> int:
+        cmd = b'kick %d' % bound
+        values = self._send_cmd(cmd, b'KICKED')
+        return int(values[0])
+
+    def kick_job(self, jid: int) -> None:
+        cmd = b'kick-job %d' % jid
+        self._send_cmd(cmd, b'KICKED')
