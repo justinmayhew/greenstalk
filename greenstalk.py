@@ -98,7 +98,15 @@ class UnknownResponseError(Error):
 
 
 class Client:
-    """Client implementation of the beanstalk protocol."""
+    """A client implementing the beanstalk protocol. Upon creation a TCP
+    connection with beanstalkd is established and tubes are initialized.
+
+    :param host: IP or hostname of the beanstalkd instance.
+    :param port: Port of the beanstalkd instance.
+    :param encoding: The encoding to encode and decode jobs with.
+    :param use: Initialize the currently used tube.
+    :param watch: Initialize the watch list.
+    """
 
     def __init__(self,
                  host: str = '127.0.0.1',
@@ -106,7 +114,6 @@ class Client:
                  encoding: Optional[str] = 'utf-8',
                  use: str = DEFAULT_TUBE,
                  watch: Union[str, Iterable[str]] = DEFAULT_TUBE) -> None:
-        """Configure the client and connect to beanstalkd."""
         self._sock = socket.create_connection((host, port))
         self._reader = self._sock.makefile('rb')  # type: BinaryIO
         self.encoding = encoding
@@ -125,7 +132,8 @@ class Client:
                 self.ignore(DEFAULT_TUBE)
 
     def close(self) -> None:
-        """Close the connection to beanstalkd."""
+        """Closes the TCP connection to beanstalkd. The client instance should
+        not be used after calling this method."""
         self._reader.close()
         self._sock.close()
 
@@ -173,14 +181,20 @@ class Client:
             return body.decode(self.encoding)
         return body
 
-    # Producer Commands
-
     def put(self,
             body: Body,
             priority: int = DEFAULT_PRIORITY,
             delay: timedelta = DEFAULT_DELAY,
             ttr: timedelta = DEFAULT_TTR) -> int:
-        """Enqueue a job into the currently used tube."""
+        """Inserts a job into the currently used tube and returns the job ID.
+
+        :param body: Data representing the job.
+        :param priority: Priority of the job.
+        :param delay: Amount of time the job will remain in the delayed state
+                      before moving to the ready state.
+        :param ttr: Maximum amount of time the job will be reserved for before
+                    timing out.
+        """
         if isinstance(body, str):
             if self.encoding is None:
                 raise TypeError("Unable to encode string with no encoding set")
@@ -197,18 +211,23 @@ class Client:
         return int(values[0])
 
     def use(self, tube: str) -> None:
-        """
-        Change the currently used tube.
+        """Changes the currently used tube.
 
-        Future put commands will enqueue into the currently used tube.
+        :param tube: Name of the tube to use.
         """
         cmd = b'use %b' % tube.encode('ascii')
         self._send_cmd(cmd, b'USING')
 
-    # Consumer Commands
-
     def reserve(self, timeout: timedelta = None) -> Tuple[int, Body]:
-        """Dequeue a job from a tube on the watch list."""
+        """Reserves a job from a tube on the watch list. Returns a tuple
+        containing the ID and body of the reserved job.
+
+        This blocks until a job is reserved unless a ``timeout`` is given,
+        which will raise a :class:`TimedOutError <greenstalk.TimedOutError>` if
+        a job cannot be reserved within that time.
+
+        :param timeout: Maximum amount of time to wait.
+        """
         if timeout is None:
             cmd = b'reserve'
         else:
@@ -217,7 +236,10 @@ class Client:
         return self._read_job(values)
 
     def delete(self, jid: int) -> None:
-        """Delete a job to signal that the associated work is complete."""
+        """Deletes a job.
+
+        :param jid: ID of the job to delete.
+        """
         cmd = b'delete %d' % jid
         self._send_cmd(cmd, b'DELETED')
 
@@ -225,84 +247,133 @@ class Client:
                 jid: int,
                 priority: int = DEFAULT_PRIORITY,
                 delay: timedelta = DEFAULT_DELAY) -> None:
-        """
-        Release a reserved job back into the ready queue.
+        """Releases a reserved job. This is typically done if the job could not
+        be finished and a retry is desired.
 
-        This signals that the associated work is incomplete. Consumers will be
-        able to reserve and retry the job.
+        :param jid: ID of the job to release.
+        :param priority: Priority of the job.
+        :param delay: Amount of time the job will remain in the delayed state
+                      before moving to the ready state.
         """
         cmd = b'release %d %d %d' % (jid, priority, delay.total_seconds())
         self._send_cmd(cmd, b'RELEASED')
 
     def bury(self, jid: int, priority: int = DEFAULT_PRIORITY) -> None:
-        """Put a job into the buried FIFO until it's kicked."""
+        """Buries a reserved job. This is typically done if the job could not be
+        finished and a retry is **not** desired.
+
+        :param jid: ID of the job to bury.
+        :param priority: Priority of the job.
+        """
         cmd = b'bury %d %d' % (jid, priority)
         self._send_cmd(cmd, b'BURIED')
 
     def touch(self, jid: int) -> None:
-        """Request additional time to complete a job."""
+        """Refreshes the time to run (TTR) of a reserved job.
+
+        :param jid: ID of the job to touch.
+        """
         cmd = b'touch %d' % jid
         self._send_cmd(cmd, b'TOUCHED')
 
     def watch(self, tube: str) -> int:
-        """
-        Add a tube to the watch list.
+        """Adds a tube to the watch list. Returns the number of tubes this
+        client is watching.
 
-        Future reserve commands will dequeue jobs from any tube on the watch
-        list.
+        :param tube: Name of the tube to watch.
         """
         cmd = b'watch %b' % tube.encode('ascii')
         values = self._send_cmd(cmd, b'WATCHING')
         return int(values[0])
 
     def ignore(self, tube: str) -> int:
-        """Remove a tube from the watch list."""
+        """Removes a tube from the watch list. Returns the number of tubes this
+        client is watching.
+
+        :param tube: Name of the tube to ignore.
+        """
         cmd = b'ignore %b' % tube.encode('ascii')
         values = self._send_cmd(cmd, b'WATCHING')
         return int(values[0])
 
     def peek(self, jid: int) -> Tuple[int, Body]:
+        """Returns a tuple containing the ID and body of a job without
+        reserving it.
+
+        :param jid: ID of the job to return.
+        """
+        # TODO: this should only return the body.
         cmd = b'peek %d' % jid
         values = self._send_cmd(cmd, b'FOUND')
         return self._read_job(values)
 
     def peek_ready(self) -> Tuple[int, Body]:
+        """Returns a tuple containing the ID and body of the next ready job in
+        the currently used tube.
+        """
         cmd = b'peek-ready'
         values = self._send_cmd(cmd, b'FOUND')
         return self._read_job(values)
 
     def peek_delayed(self) -> Tuple[int, Body]:
+        """Returns a tuple containing the ID and body of the next available
+        delayed job in the currently used tube.
+        """
         cmd = b'peek-delayed'
         values = self._send_cmd(cmd, b'FOUND')
         return self._read_job(values)
 
     def peek_buried(self) -> Tuple[int, Body]:
+        """Returns a tuple containing the ID and body of the oldest buried job
+        in the currently used tube.
+        """
         cmd = b'peek-buried'
         values = self._send_cmd(cmd, b'FOUND')
         return self._read_job(values)
 
     def kick(self, bound: int) -> int:
+        """Moves delayed and buried jobs into the ready queue. Only jobs from
+        the currently used tube are moved.
+
+        A kick will only move jobs in a single state. If there are any buried
+        jobs, only those will be moved. Otherwise delayed jobs will be moved.
+
+        :param bound: Maximum number of jobs to move.
+        """
         cmd = b'kick %d' % bound
         values = self._send_cmd(cmd, b'KICKED')
         return int(values[0])
 
     def kick_job(self, jid: int) -> None:
+        """Moves a delayed or buried job into the ready queue.
+
+        :param jid: ID of the job to move.
+        """
         cmd = b'kick-job %d' % jid
         self._send_cmd(cmd, b'KICKED')
 
     def stats_job(self, jid: int) -> Stats:
+        """Returns job statistics.
+
+        :param jid: ID of the job.
+        """
         cmd = b'stats-job %d' % jid
         values = self._send_cmd(cmd, b'OK')
         data = self._read_data(int(values[0]))
         return _parse_simple_yaml(data)
 
     def stats_tube(self, tube: str) -> Stats:
+        """Returns tube statistics.
+
+        :param tube: Name of the tube.
+        """
         cmd = b'stats-tube %b' % tube.encode('ascii')
         values = self._send_cmd(cmd, b'OK')
         data = self._read_data(int(values[0]))
         return _parse_simple_yaml(data)
 
     def stats(self) -> Stats:
+        """Returns system statistics."""
         cmd = b'stats'
         values = self._send_cmd(cmd, b'OK')
         data = self._read_data(int(values[0]))
