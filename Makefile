@@ -2,6 +2,6 @@ test:
 	pytest tests.py
 
 lint:
-	flake8 greenstalk tests.py
-	isort greenstalk tests.py --recursive --multi-line 5
-	mypy greenstalk tests.py --ignore-missing-imports --strict-optional --disallow-untyped-defs
+	flake8 greenstalk.py tests.py
+	isort greenstalk.py tests.py --multi-line 5
+	mypy greenstalk.py tests.py --ignore-missing-imports --strict-optional --disallow-untyped-defs

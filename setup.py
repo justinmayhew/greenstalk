@@ -11,7 +11,7 @@ setup(
     author_email='mayhew@live.ca',
     url='https://github.com/mayhewj/greenstalk',
     license='MIT',
-    packages=['greenstalk'],
+    py_modules=['greenstalk'],
     classifiers=[
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',

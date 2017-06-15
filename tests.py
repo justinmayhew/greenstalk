@@ -7,10 +7,10 @@ from typing import Any, Callable
 import pytest
 
 from greenstalk import (
-    BuriedError, Client, DeadlineSoonError, JobTooBigError, NotFoundError,
-    NotIgnoredError, TimedOutError, UnknownResponseError
+    DEFAULT_PRIORITY, DEFAULT_TTR, BuriedError, Client, DeadlineSoonError,
+    JobTooBigError, NotFoundError, NotIgnoredError, TimedOutError,
+    UnknownResponseError
 )
-from greenstalk.client import DEFAULT_PRIORITY, DEFAULT_TTR
 
 TEST_PORT = 4444
 
