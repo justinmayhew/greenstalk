@@ -1,3 +1,7 @@
+flake8
+isort
+mypy
 pytest
 sphinx
 sphinx-autodoc-typehints
+tox
