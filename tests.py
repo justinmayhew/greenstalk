@@ -7,7 +7,7 @@ from typing import Any, Callable
 import pytest
 
 from greenstalk import (
-    DEFAULT_PRIORITY, DEFAULT_TTR, BuriedError, Client, DeadlineSoonError,
+    DEFAULT_PRIORITY, DEFAULT_TTR, BuriedError, Client, DeadlineSoonError, Job,
     JobTooBigError, NotFoundError, NotIgnoredError, TimedOutError,
     UnknownResponseError
 )
@@ -46,37 +46,37 @@ with_fake = with_subprocess('scripts/fake-response', str(TEST_PORT))
 @with_beanstalkd()
 def test_basic_usage(c: Client) -> None:
     c.use('emails')
-    put_jid = c.put('测试@example.com')
+    id = c.put('测试@example.com')
     c.watch('emails')
     c.ignore('default')
-    reserve_jid, body = c.reserve()
-    assert put_jid == reserve_jid
-    assert body == '测试@example.com'
-    c.delete(reserve_jid)
+    job = c.reserve()
+    assert id == job.id
+    assert job.body == '测试@example.com'
+    c.delete(job)
 
 
 @with_beanstalkd()
 def test_put_priority(c: Client) -> None:
     c.put('2', priority=2)
     c.put('1', priority=1)
-    _, body = c.reserve()
-    assert body == '1'
-    _, body = c.reserve()
-    assert body == '2'
+    job = c.reserve()
+    assert job.body == '1'
+    job = c.reserve()
+    assert job.body == '2'
 
 
 @with_beanstalkd()
 def test_delays(c: Client) -> None:
     c.put('delayed', delay=timedelta(seconds=1))
     before = datetime.now()
-    jid, body = c.reserve()
-    assert body == 'delayed'
+    job = c.reserve()
+    assert job.body == 'delayed'
     assert datetime.now() - before >= timedelta(seconds=1)
-    c.release(jid, delay=timedelta(seconds=2))
+    c.release(job, delay=timedelta(seconds=2))
     with pytest.raises(TimedOutError):
         c.reserve(timeout=timedelta(seconds=1))
-    jid, _ = c.reserve(timeout=timedelta(seconds=1))
-    c.bury(jid)
+    job = c.reserve(timeout=timedelta(seconds=1))
+    c.bury(job)
     with pytest.raises(TimedOutError):
         c.reserve(timeout=timedelta(seconds=0))
 
@@ -85,13 +85,13 @@ def test_delays(c: Client) -> None:
 def test_ttr(c: Client) -> None:
     c.put('two second ttr', ttr=timedelta(seconds=2))
     before = datetime.now()
-    jid, _ = c.reserve()
+    job = c.reserve()
     with pytest.raises(DeadlineSoonError):
         c.reserve()
-    c.touch(jid)
+    c.touch(job)
     with pytest.raises(DeadlineSoonError):
         c.reserve()
-    c.release(jid)
+    c.release(job)
     delta = datetime.now() - before
     assert delta >= timedelta(seconds=1, milliseconds=950)
     assert delta <= timedelta(seconds=2, milliseconds=50)
@@ -110,9 +110,9 @@ def test_reserve_raises_on_timeout(c: Client) -> None:
 @with_beanstalkd(use='hosts', watch='hosts')
 def test_initialize_with_tubes(c: Client) -> None:
     c.put('www.example.com')
-    jid, body = c.reserve()
-    assert body == 'www.example.com'
-    c.delete(jid)
+    job = c.reserve()
+    assert job.body == 'www.example.com'
+    c.delete(job.id)
     c.use('default')
     c.put('')
     with pytest.raises(TimedOutError):
@@ -126,12 +126,12 @@ def test_initialize_watch_multiple(c: Client) -> None:
     c.put(b'rust')
     c.use('dynamic')
     c.put(b'python')
-    jid, body = c.reserve(timeout=timedelta())
-    assert body == 'haskell'
-    jid, body = c.reserve(timeout=timedelta())
-    assert body == 'rust'
-    jid, body = c.reserve(timeout=timedelta())
-    assert body == 'python'
+    job = c.reserve(timeout=timedelta())
+    assert job.body == 'haskell'
+    job = c.reserve(timeout=timedelta())
+    assert job.body == 'rust'
+    job = c.reserve(timeout=timedelta())
+    assert job.body == 'python'
 
 
 @with_beanstalkd(encoding=None)
@@ -139,16 +139,16 @@ def test_binary_jobs(c: Client) -> None:
     with open('python-logo.png', 'rb') as f:
         image = f.read()
     c.put(image)
-    jid, body = c.reserve()
-    assert body == image
+    job = c.reserve()
+    assert job.body == image
 
 
 @with_beanstalkd()
 def test_peek(c: Client) -> None:
-    put_jid = c.put('job')
-    peek_jid, body = c.peek(put_jid)
-    assert put_jid == peek_jid
-    assert body == 'job'
+    id = c.put('job')
+    job = c.peek(id)
+    assert job.id == id
+    assert job.body == 'job'
 
 
 @with_beanstalkd()
@@ -159,10 +159,10 @@ def test_peek_not_found(c: Client) -> None:
 
 @with_beanstalkd()
 def test_peek_ready(c: Client) -> None:
-    put_jid = c.put('ready')
-    peek_jid, body = c.peek_ready()
-    assert put_jid == peek_jid
-    assert body == 'ready'
+    id = c.put('ready')
+    job = c.peek_ready()
+    assert job.id == id
+    assert job.body == 'ready'
 
 
 @with_beanstalkd()
@@ -174,10 +174,10 @@ def test_peek_ready_not_found(c: Client) -> None:
 
 @with_beanstalkd()
 def test_peek_delayed(c: Client) -> None:
-    put_jid = c.put('delayed', delay=timedelta(seconds=10))
-    peek_jid, body = c.peek_delayed()
-    assert put_jid == peek_jid
-    assert body == 'delayed'
+    id = c.put('delayed', delay=timedelta(seconds=10))
+    job = c.peek_delayed()
+    assert job.id == id
+    assert job.body == 'delayed'
 
 
 @with_beanstalkd()
@@ -188,12 +188,12 @@ def test_peek_delayed_not_found(c: Client) -> None:
 
 @with_beanstalkd()
 def test_peek_buried(c: Client) -> None:
-    put_jid = c.put('buried')
-    jid, _ = c.reserve()
-    c.bury(jid)
-    peek_jid, body = c.peek_buried()
-    assert put_jid == peek_jid
-    assert body == 'buried'
+    id = c.put('buried')
+    job = c.reserve()
+    c.bury(job)
+    job = c.peek_buried()
+    assert job.id == id
+    assert job.body == 'buried'
 
 
 @with_beanstalkd()
@@ -208,23 +208,22 @@ def test_kick(c: Client) -> None:
     c.put('a delayed job', delay=timedelta(hours=1))
     c.put('another delayed job', delay=timedelta(hours=1))
     c.put('a ready job')
-    jid, _ = c.reserve()
-    c.bury(jid)
+    job = c.reserve()
+    c.bury(job)
     assert c.kick(10) == 1
     assert c.kick(10) == 2
 
 
 @with_beanstalkd()
 def test_kick_job(c: Client) -> None:
-    jid = c.put('a delayed job', delay=timedelta(hours=1))
-    c.kick_job(jid)
+    id = c.put('a delayed job', delay=timedelta(hours=1))
+    c.kick_job(id)
     c.reserve(timeout=timedelta())
 
 
 @with_beanstalkd()
 def test_stats_job(c: Client) -> None:
-    jid = c.put('job')
-    assert c.stats_job(jid) == {
+    assert c.stats_job(c.put('job')) == {
         'id': 1,
         'tube': 'default',
         'state': 'ready',
@@ -343,14 +342,14 @@ def test_str_body_no_encoding(c: Client) -> None:
 def test_put_buried_error(c: Client) -> None:
     with pytest.raises(BuriedError) as e:
         c.put('hello')
-    assert e.value.jid == 10
+    assert e.value.id == 10
 
 
 @with_fake(response='BURIED\r\n')
 def test_release_buried_error(c: Client) -> None:
     with pytest.raises(BuriedError) as e:
-        c.release(1)
-    assert e.value.jid is None
+        c.release(Job(1, 'a fake job'))
+    assert e.value.id is None
 
 
 @with_fake(response='FOO 1 2 3\r\n')

@@ -20,16 +20,16 @@ Quickstart
 .. code-block:: pycon
 
     >>> import greenstalk
-    >>> c = greenstalk.Client(host='127.0.0.1', port=11300)
-    >>> c.put('hello')
+    >>> queue = greenstalk.Client(host='127.0.0.1', port=11300)
+    >>> queue.put('hello')
     1
-    >>> jid, body = c.reserve()
-    >>> jid
+    >>> job = queue.reserve()
+    >>> job.id
     1
-    >>> body
+    >>> job.body
     'hello'
-    >>> c.delete(jid)
-    >>> c.close()
+    >>> queue.delete(job)
+    >>> queue.close()
 
 Resources
 ---------

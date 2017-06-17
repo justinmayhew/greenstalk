@@ -13,6 +13,17 @@ DEFAULT_DELAY = timedelta()
 DEFAULT_TTR = timedelta(seconds=60)
 
 
+class Job:
+    __slots__ = ('id', 'body')
+
+    def __init__(self, id: int, body: Body) -> None:
+        self.id = id
+        self.body = body
+
+
+JobOrID = Union[Job, int]
+
+
 class Error(Exception):
     pass
 
@@ -29,9 +40,9 @@ class BuriedError(BeanstalkdError):
 
     def __init__(self, values: List[bytes] = None) -> None:
         if values:
-            self.jid = int(values[0])  # type: Optional[int]
+            self.id = int(values[0])  # type: Optional[int]
         else:
-            self.jid = None
+            self.id = None
 
 
 class DeadlineSoonError(BeanstalkdError):
@@ -168,13 +179,10 @@ class Client:
 
         return data
 
-    def _read_job(self, values: List[bytes]) -> Tuple[int, Body]:
+    def _read_job(self, values: List[bytes]) -> Job:
         assert len(values) == 2
-        jid = int(values[0])
-        size = int(values[1])
-
-        body = self._read_data(size)
-        return jid, self._decode_body(body)
+        body = self._read_data(int(values[1]))
+        return Job(int(values[0]), self._decode_body(body))
 
     def _decode_body(self, body: bytes) -> Body:
         if self.encoding is not None:
@@ -192,8 +200,8 @@ class Client:
         :param priority: Priority of the job.
         :param delay: Amount of time the job will remain in the delayed state
                       before moving to the ready state.
-        :param ttr: Maximum amount of time the job will be reserved for before
-                    timing out.
+        :param ttr: Time to run: the maximum amount of time the job can be reserved
+                    for before timing out.
         """
         if isinstance(body, str):
             if self.encoding is None:
@@ -218,9 +226,9 @@ class Client:
         cmd = b'use %b' % tube.encode('ascii')
         self._send_cmd(cmd, b'USING')
 
-    def reserve(self, timeout: timedelta = None) -> Tuple[int, Body]:
-        """Reserves a job from a tube on the watch list. Returns a tuple
-        containing the ID and body of the reserved job.
+    def reserve(self, timeout: timedelta = None) -> Job:
+        """Reserves a job from a tube on the watch list, giving this client
+        exclusive access to it for the TTR. Returns the reserved job.
 
         This blocks until a job is reserved unless a ``timeout`` is given,
         which will raise a :class:`TimedOutError <greenstalk.TimedOutError>` if
@@ -235,45 +243,45 @@ class Client:
         values = self._send_cmd(cmd, b'RESERVED')
         return self._read_job(values)
 
-    def delete(self, jid: int) -> None:
+    def delete(self, job: JobOrID) -> None:
         """Deletes a job.
 
-        :param jid: ID of the job to delete.
+        :param job: Job or the ID of the job to delete.
         """
-        cmd = b'delete %d' % jid
+        cmd = b'delete %d' % _to_id(job)
         self._send_cmd(cmd, b'DELETED')
 
     def release(self,
-                jid: int,
+                job: Job,
                 priority: int = DEFAULT_PRIORITY,
                 delay: timedelta = DEFAULT_DELAY) -> None:
         """Releases a reserved job. This is typically done if the job could not
         be finished and a retry is desired.
 
-        :param jid: ID of the job to release.
+        :param job: Job to release.
         :param priority: Priority of the job.
         :param delay: Amount of time the job will remain in the delayed state
                       before moving to the ready state.
         """
-        cmd = b'release %d %d %d' % (jid, priority, delay.total_seconds())
+        cmd = b'release %d %d %d' % (job.id, priority, delay.total_seconds())
         self._send_cmd(cmd, b'RELEASED')
 
-    def bury(self, jid: int, priority: int = DEFAULT_PRIORITY) -> None:
+    def bury(self, job: Job, priority: int = DEFAULT_PRIORITY) -> None:
         """Buries a reserved job. This is typically done if the job could not be
         finished and a retry is **not** desired.
 
-        :param jid: ID of the job to bury.
+        :param job: Job to bury.
         :param priority: Priority of the job.
         """
-        cmd = b'bury %d %d' % (jid, priority)
+        cmd = b'bury %d %d' % (job.id, priority)
         self._send_cmd(cmd, b'BURIED')
 
-    def touch(self, jid: int) -> None:
-        """Refreshes the time to run (TTR) of a reserved job.
+    def touch(self, job: Job) -> None:
+        """Refreshes the TTR of a reserved job.
 
-        :param jid: ID of the job to touch.
+        :param job: Job to touch.
         """
-        cmd = b'touch %d' % jid
+        cmd = b'touch %d' % job.id
         self._send_cmd(cmd, b'TOUCHED')
 
     def watch(self, tube: str) -> int:
@@ -296,37 +304,30 @@ class Client:
         values = self._send_cmd(cmd, b'WATCHING')
         return int(values[0])
 
-    def peek(self, jid: int) -> Tuple[int, Body]:
-        """Returns a tuple containing the ID and body of a job without
-        reserving it.
+    def peek(self, id: int) -> Job:
+        """Returns a job by ID.
 
-        :param jid: ID of the job to return.
+        :param id: ID of the job to return.
         """
         # TODO: this should only return the body.
-        cmd = b'peek %d' % jid
+        cmd = b'peek %d' % id
         values = self._send_cmd(cmd, b'FOUND')
         return self._read_job(values)
 
-    def peek_ready(self) -> Tuple[int, Body]:
-        """Returns a tuple containing the ID and body of the next ready job in
-        the currently used tube.
-        """
+    def peek_ready(self) -> Job:
+        """Returns the next ready job in the currently used tube."""
         cmd = b'peek-ready'
         values = self._send_cmd(cmd, b'FOUND')
         return self._read_job(values)
 
-    def peek_delayed(self) -> Tuple[int, Body]:
-        """Returns a tuple containing the ID and body of the next available
-        delayed job in the currently used tube.
-        """
+    def peek_delayed(self) -> Job:
+        """Returns the next available delayed job in the currently used tube."""
         cmd = b'peek-delayed'
         values = self._send_cmd(cmd, b'FOUND')
         return self._read_job(values)
 
-    def peek_buried(self) -> Tuple[int, Body]:
-        """Returns a tuple containing the ID and body of the oldest buried job
-        in the currently used tube.
-        """
+    def peek_buried(self) -> Job:
+        """Returns the oldest buried job in the currently used tube."""
         cmd = b'peek-buried'
         values = self._send_cmd(cmd, b'FOUND')
         return self._read_job(values)
@@ -344,20 +345,20 @@ class Client:
         values = self._send_cmd(cmd, b'KICKED')
         return int(values[0])
 
-    def kick_job(self, jid: int) -> None:
+    def kick_job(self, job: JobOrID) -> None:
         """Moves a delayed or buried job into the ready queue.
 
-        :param jid: ID of the job to move.
+        :param job: Job or the ID of the job to move.
         """
-        cmd = b'kick-job %d' % jid
+        cmd = b'kick-job %d' % _to_id(job)
         self._send_cmd(cmd, b'KICKED')
 
-    def stats_job(self, jid: int) -> Stats:
+    def stats_job(self, job: JobOrID) -> Stats:
         """Returns job statistics.
 
-        :param jid: ID of the job.
+        :param job: Job or the ID of the job.
         """
-        cmd = b'stats-job %d' % jid
+        cmd = b'stats-job %d' % _to_id(job)
         values = self._send_cmd(cmd, b'OK')
         data = self._read_data(int(values[0]))
         return _parse_simple_yaml(data)
@@ -378,6 +379,10 @@ class Client:
         values = self._send_cmd(cmd, b'OK')
         data = self._read_data(int(values[0]))
         return _parse_simple_yaml(data)
+
+
+def _to_id(j: JobOrID) -> int:
+    return j.id if isinstance(j, Job) else j
 
 
 def _parse_simple_yaml(buf: bytes) -> Stats:
