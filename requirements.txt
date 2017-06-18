@@ -2,6 +2,7 @@ flake8
 isort
 mypy
 pytest
+pytest-cov
 sphinx
 sphinx-autodoc-typehints
 sphinx_rtd_theme

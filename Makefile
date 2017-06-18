@@ -1,5 +1,5 @@
 test:
-	pytest tests.py
+	pytest --cov=greenstalk tests.py
 
 lint:
 	flake8 greenstalk.py tests.py

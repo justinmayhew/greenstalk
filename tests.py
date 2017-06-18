@@ -27,7 +27,7 @@ def with_subprocess(*cli: Any) -> Callable:
                 else:
                     cmdline.append(response)
                 process = subprocess.Popen(cmdline)
-                time.sleep(0.1)
+                time.sleep(0.5)
                 try:
                     with closing(Client(port=TEST_PORT, **kwargs)) as c:
                         test(c)
