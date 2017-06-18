@@ -2,7 +2,7 @@ import socket
 from datetime import timedelta
 from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
 
-__version__ = '0.3.0'
+__version__ = '0.4.0'
 
 Body = Union[bytes, str]
 Stats = Dict[str, Union[str, int]]
