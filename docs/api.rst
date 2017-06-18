@@ -4,6 +4,9 @@ API Reference
 .. autoclass:: greenstalk.Client
     :members:
 
+.. autoclass:: greenstalk.Job
+    :members:
+
 .. autoclass:: greenstalk.Error
 .. autoclass:: greenstalk.BeanstalkdError
 .. autoclass:: greenstalk.BadFormatError

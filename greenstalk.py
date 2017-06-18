@@ -197,7 +197,8 @@ class Client:
         """Inserts a job into the currently used tube and returns the job ID.
 
         :param body: Data representing the job.
-        :param priority: Priority of the job.
+        :param priority: An integer between 0 and 4,294,967,295 where 0 is the
+                         most urgent.
         :param delay: Amount of time the job will remain in the delayed state
                       before moving to the ready state.
         :param ttr: Time to run: the maximum amount of time the job can be reserved

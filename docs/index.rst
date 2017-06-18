@@ -1,21 +1,52 @@
-.. Greenstalk documentation master file, created by
-   sphinx-quickstart on Wed Jun 14 21:00:03 2017.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+Welcome to Greenstalk
+=====================
 
-Welcome to Greenstalk's documentation!
-======================================
+Greenstalk is a Python client library for communicating with the `beanstalkd
+<https://kr.github.io/beanstalkd/>`_ work queue.  It makes it easy to write:
+
+- **Producers**, processes that insert jobs into a queue:
+
+.. code-block:: python3
+
+    import greenstalk
+
+    queue = greenstalk.Client(host='127.0.0.1', port=11300)
+    queue.put('hello')
+
+- **Consumers**, processes that take jobs from a queue and execute some work:
+
+.. code-block:: python3
+
+    import greenstalk
+
+    queue = greenstalk.Client(host='127.0.0.1', port=11300)
+    while True:
+        job = queue.reserve()
+        print(job.body)
+        queue.delete(job)
+
+Contents
+--------
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
 
+   install
+   quickstart
    api
 
+Links
+-----
 
-Indices and tables
-==================
+This project is developed on GitHub. Contributions are welcome.
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+- `Code <https://github.com/mayhewj/greenstalk>`_
+- `Issue tracker <https://github.com/mayhewj/greenstalk/issues>`_
+
+Inspiration
+-----------
+
+Greenstalk is heavily inspired by the following libraries:
+
+- `Go - beanstalk <https://github.com/kr/beanstalk>`_
+- `Python - beanstalkc <https://github.com/earl/beanstalkc/>`_

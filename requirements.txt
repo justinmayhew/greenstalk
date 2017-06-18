@@ -4,4 +4,5 @@ mypy
 pytest
 sphinx
 sphinx-autodoc-typehints
+sphinx_rtd_theme
 tox
