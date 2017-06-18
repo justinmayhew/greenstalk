@@ -14,8 +14,8 @@ Index and can be installed by running:
 
     $ pip install greenstalk
 
-Quickstart
-----------
+Getting Started
+---------------
 
 .. code-block:: pycon
 
@@ -30,6 +30,12 @@ Quickstart
     'hello'
     >>> queue.delete(job)
     >>> queue.close()
+
+Documentation
+-------------
+
+Documentation is available on `Read the Docs
+<https://greenstalk.readthedocs.io/>`_.
 
 Resources
 ---------
