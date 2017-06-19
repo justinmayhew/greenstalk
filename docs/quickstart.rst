@@ -23,9 +23,8 @@ Create a :class:`Client <greenstalk.Client>`, which immediately connects to
 Inserting Jobs
 --------------
 
-When inserting jobs, we need to specify the body. Job bodies are opaque
-sequences of bytes that represent the work that needs to be done. Let's use
-:meth:`put <greenstalk.Client.put>` to insert a simple string:
+Jobs are inserted using :meth:`put <greenstalk.Client.put>`. The job body is the
+only required argument:
 
 .. code-block:: pycon3
 
@@ -71,9 +70,9 @@ Here's what you can do with a reserved job to change its state:
 Body Serialization
 ------------------
 
-It was mentioned earlier that a job body, from ``beanstalkd``'s point of view,
-is just an opaque sequences of bytes. That means it's up to the clients to agree
-on a serialization format to represent the data required to complete the job.
+From ``beanstalkd``'s point of view, the body of a job is just an opaque
+sequence of bytes. It's up to the clients to agree on a serialization format to
+represent the data required to complete the job.
 
 In the context of a web application where a user just signed up and we need to
 send an email with a registration code, the producer may look something like
@@ -113,8 +112,8 @@ Job Priorities
 Every job has a priority which is an integer between 0 and 4,294,967,295. 0 is
 the most urgent priority. The :meth:`put <greenstalk.Client.put>`,
 :meth:`release <greenstalk.Client.release>` and :meth:`bury
-<greenstalk.Client.bury>` methods all take an ``priority`` argument that
-defaults to ``2**16`` if not specified.
+<greenstalk.Client.bury>` methods all take a ``priority`` argument that defaults
+to ``2**16``.
 
 Delaying a Job
 --------------
@@ -127,14 +126,16 @@ Time to Run
 -----------
 
 Every job has an associated time to run (TTR) value specified by the ``ttr``
-argument to :meth:`put <greenstalk.Client.put>`. As soon as a job is reserved,
-``beanstalkd`` starts the timer. If the client doesn't send a :meth:`delete
-<greenstalk.Client.delete>`, :meth:`release <greenstalk.Client.release>`, or
-:meth:`bury <greenstalk.Client.bury>` command within the TTR, the job will time
-out and be released back into the ready queue.
+argument to the :meth:`put <greenstalk.Client.put>` method. It defaults to 60
+seconds.
 
-Clients can also use the :meth:`touch <greenstalk.Client.touch>` method before
-the job times out to refresh the TTR.
+As soon as a job is reserved, ``beanstalkd`` starts a timer. If the client
+doesn't send a :meth:`delete <greenstalk.Client.delete>`, :meth:`release
+<greenstalk.Client.release>`, or :meth:`bury <greenstalk.Client.bury>` command
+within the TTR, the job will time out and be released back into the ready queue.
+
+If more time is required to complete a job, the :meth:`touch
+<greenstalk.Client.touch>` method can be used to refresh the TTR.
 
 Job Lifecycle
 -------------
