@@ -3,7 +3,7 @@ from setuptools import setup
 from greenstalk import __version__
 
 setup(
-    name='Greenstalk',
+    name='greenstalk',
     version=__version__,
     description='A client for beanstalkd: the simple, fast work queue',
     long_description=open('README.rst').read(),
