@@ -1,7 +1,6 @@
 import os
 import subprocess
 import time
-from contextlib import closing
 from datetime import datetime, timedelta
 from typing import Any, Callable
 
@@ -17,12 +16,12 @@ from greenstalk import (
 def with_beanstalkd(**kwargs: Any) -> Callable:
     def decorator(test: Callable) -> Callable:
         def wrapper() -> None:
-            TEST_PORT = 4444
-            cmd = ('beanstalkd', '-l', '127.0.0.1', '-p', str(TEST_PORT))
+            port = 4444
+            cmd = ('beanstalkd', '-l', '127.0.0.1', '-p', str(port))
             with subprocess.Popen(cmd) as beanstalkd:
                 time.sleep(0.1)
                 try:
-                    with closing(Client(port=TEST_PORT, **kwargs)) as c:
+                    with Client(port=port, **kwargs) as c:
                         test(c)
                 finally:
                     beanstalkd.terminate()

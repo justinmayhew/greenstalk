@@ -1,6 +1,6 @@
 import socket
 from datetime import timedelta
-from typing import BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
 
 __version__ = '0.4.0'
 
@@ -141,6 +141,12 @@ class Client:
                 self.watch(tube)
             if DEFAULT_TUBE not in watch:
                 self.ignore(DEFAULT_TUBE)
+
+    def __enter__(self) -> 'Client':
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        self.close()
 
     def close(self) -> None:
         """Closes the TCP connection to beanstalkd. The client instance should
