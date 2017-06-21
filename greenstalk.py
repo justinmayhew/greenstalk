@@ -150,38 +150,16 @@ class Client:
 
     def _send_cmd(self, cmd: bytes, expected: bytes) -> List[bytes]:
         self._sock.sendall(cmd + b'\r\n')
-
         line = self._reader.readline()
-        if not line:
-            raise ConnectionError("Unexpected EOF")
+        return _parse_response(line, expected)
 
-        assert line[-2:] == b'\r\n'
-        line = line[:-2]
-
-        status, *values = line.split()
-
-        if status == expected:
-            return values
-
-        if status in ERROR_RESPONSES:
-            raise ERROR_RESPONSES[status](values)
-
-        raise UnknownResponseError(status, values)
-
-    def _read_data(self, size: int) -> bytes:
+    def _read_chunk(self, size: int) -> bytes:
         data = self._reader.read(size + 2)
-
-        assert data[-2:] == b'\r\n'
-        data = data[:-2]
-
-        if len(data) != size:
-            raise ConnectionError("Unexpected EOF reading chunk")
-
-        return data
+        return _parse_chunk(data, size)
 
     def _read_job(self, values: List[bytes]) -> Job:
         assert len(values) == 2
-        body = self._read_data(int(values[1]))
+        body = self._read_chunk(int(values[1]))
         return Job(int(values[0]), self._decode_body(body))
 
     def _decode_body(self, body: bytes) -> Body:
@@ -361,7 +339,7 @@ class Client:
         """
         cmd = b'stats-job %d' % _to_id(job)
         values = self._send_cmd(cmd, b'OK')
-        data = self._read_data(int(values[0]))
+        data = self._read_chunk(int(values[0]))
         return _parse_simple_yaml(data)
 
     def stats_tube(self, tube: str) -> Stats:
@@ -371,19 +349,47 @@ class Client:
         """
         cmd = b'stats-tube %b' % tube.encode('ascii')
         values = self._send_cmd(cmd, b'OK')
-        data = self._read_data(int(values[0]))
+        data = self._read_chunk(int(values[0]))
         return _parse_simple_yaml(data)
 
     def stats(self) -> Stats:
         """Returns system statistics."""
         cmd = b'stats'
         values = self._send_cmd(cmd, b'OK')
-        data = self._read_data(int(values[0]))
+        data = self._read_chunk(int(values[0]))
         return _parse_simple_yaml(data)
 
 
 def _to_id(j: JobOrID) -> int:
     return j.id if isinstance(j, Job) else j
+
+
+def _parse_response(line: bytes, expected: bytes) -> List[bytes]:
+    if not line:
+        raise ConnectionError("Unexpected EOF")
+
+    assert line[-2:] == b'\r\n'
+    line = line[:-2]
+
+    status, *values = line.split()
+
+    if status == expected:
+        return values
+
+    if status in ERROR_RESPONSES:
+        raise ERROR_RESPONSES[status](values)
+
+    raise UnknownResponseError(status, values)
+
+
+def _parse_chunk(data: bytes, size: int) -> bytes:
+    assert data[-2:] == b'\r\n'
+    data = data[:-2]
+
+    if len(data) != size:
+        raise ConnectionError("Unexpected EOF reading chunk")
+
+    return data
 
 
 def _parse_simple_yaml(buf: bytes) -> Stats:
