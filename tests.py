@@ -1,3 +1,4 @@
+import os
 import subprocess
 import time
 from contextlib import closing
@@ -122,11 +123,10 @@ def test_initialize_watch_multiple(c: Client) -> None:
 
 @with_beanstalkd(encoding=None)
 def test_binary_jobs(c: Client) -> None:
-    with open('python-logo.png', 'rb') as f:
-        image = f.read()
-    c.put(image)
+    data = os.urandom(4096)
+    c.put(data)
     job = c.reserve()
-    assert job.body == image
+    assert job.body == data
 
 
 @with_beanstalkd()
