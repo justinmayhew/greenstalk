@@ -1,5 +1,4 @@
 import socket
-from datetime import timedelta
 from typing import Any, BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
 
 __version__ = '0.4.0'
@@ -9,8 +8,8 @@ Stats = Dict[str, Union[str, int]]
 
 DEFAULT_TUBE = 'default'
 DEFAULT_PRIORITY = 2**16
-DEFAULT_DELAY = timedelta()
-DEFAULT_TTR = timedelta(seconds=60)
+DEFAULT_DELAY = 0
+DEFAULT_TTR = 60
 
 
 class Job:
@@ -176,30 +175,23 @@ class Client:
     def put(self,
             body: Body,
             priority: int = DEFAULT_PRIORITY,
-            delay: timedelta = DEFAULT_DELAY,
-            ttr: timedelta = DEFAULT_TTR) -> int:
+            delay: int = DEFAULT_DELAY,
+            ttr: int = DEFAULT_TTR) -> int:
         """Inserts a job into the currently used tube and returns the job ID.
 
         :param body: Data representing the job.
         :param priority: An integer between 0 and 4,294,967,295 where 0 is the
                          most urgent.
-        :param delay: Amount of time the job will remain in the delayed state
-                      before moving to the ready state.
-        :param ttr: Time to run: the maximum amount of time the job can be reserved
-                    for before timing out.
+        :param delay: The number of seconds to delay the job for.
+        :param ttr: The maximum number of seconds a job can be reserved for
+                    before timing out.
         """
         if isinstance(body, str):
             if self.encoding is None:
                 raise TypeError("Unable to encode string with no encoding set")
             body = body.encode(self.encoding)
 
-        cmd = b'put %d %d %d %d\r\n%b' % (
-            priority,
-            delay.total_seconds(),
-            ttr.total_seconds(),
-            len(body),
-            body,
-        )
+        cmd = b'put %d %d %d %d\r\n%b' % (priority, delay, ttr, len(body), body)
         values = self._send_cmd(cmd, b'INSERTED')
         return int(values[0])
 
@@ -211,7 +203,7 @@ class Client:
         cmd = b'use %b' % tube.encode('ascii')
         self._send_cmd(cmd, b'USING')
 
-    def reserve(self, timeout: timedelta = None) -> Job:
+    def reserve(self, timeout: Optional[int] = None) -> Job:
         """Reserves a job from a tube on the watch list, giving this client
         exclusive access to it for the TTR. Returns the reserved job.
 
@@ -219,12 +211,12 @@ class Client:
         which will raise a :class:`TimedOutError <greenstalk.TimedOutError>` if
         a job cannot be reserved within that time.
 
-        :param timeout: Maximum amount of time to wait.
+        :param timeout: The maximum number of seconds to wait.
         """
         if timeout is None:
             cmd = b'reserve'
         else:
-            cmd = b'reserve-with-timeout %d' % timeout.total_seconds()
+            cmd = b'reserve-with-timeout %d' % timeout
         values = self._send_cmd(cmd, b'RESERVED')
         return self._read_job(values)
 
@@ -239,16 +231,15 @@ class Client:
     def release(self,
                 job: Job,
                 priority: int = DEFAULT_PRIORITY,
-                delay: timedelta = DEFAULT_DELAY) -> None:
+                delay: int = DEFAULT_DELAY) -> None:
         """Releases a reserved job. This is typically done if the job could not
         be finished and a retry is desired.
 
         :param job: Job to release.
         :param priority: Priority of the job.
-        :param delay: Amount of time the job will remain in the delayed state
-                      before moving to the ready state.
+        :param delay: The number of seconds to delay the job for.
         """
-        cmd = b'release %d %d %d' % (job.id, priority, delay.total_seconds())
+        cmd = b'release %d %d %d' % (job.id, priority, delay)
         self._send_cmd(cmd, b'RELEASED')
 
     def bury(self, job: Job, priority: int = DEFAULT_PRIORITY) -> None:

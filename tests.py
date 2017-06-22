@@ -53,23 +53,23 @@ def test_put_priority(c: Client) -> None:
 
 @with_beanstalkd()
 def test_delays(c: Client) -> None:
-    c.put('delayed', delay=timedelta(seconds=1))
+    c.put('delayed', delay=1)
     before = datetime.now()
     job = c.reserve()
     assert job.body == 'delayed'
     assert datetime.now() - before >= timedelta(seconds=1)
-    c.release(job, delay=timedelta(seconds=2))
+    c.release(job, delay=2)
     with pytest.raises(TimedOutError):
-        c.reserve(timeout=timedelta(seconds=1))
-    job = c.reserve(timeout=timedelta(seconds=1))
+        c.reserve(timeout=1)
+    job = c.reserve(timeout=1)
     c.bury(job)
     with pytest.raises(TimedOutError):
-        c.reserve(timeout=timedelta(seconds=0))
+        c.reserve(timeout=0)
 
 
 @with_beanstalkd()
 def test_ttr(c: Client) -> None:
-    c.put('two second ttr', ttr=timedelta(seconds=2))
+    c.put('two second ttr', ttr=2)
     before = datetime.now()
     job = c.reserve()
     with pytest.raises(DeadlineSoonError):
@@ -87,7 +87,7 @@ def test_ttr(c: Client) -> None:
 def test_reserve_raises_on_timeout(c: Client) -> None:
     before = datetime.now()
     with pytest.raises(TimedOutError):
-        c.reserve(timeout=timedelta(seconds=1))
+        c.reserve(timeout=1)
     delta = datetime.now() - before
     assert delta >= timedelta(seconds=1)
     assert delta <= timedelta(seconds=1, milliseconds=50)
@@ -102,7 +102,7 @@ def test_initialize_with_tubes(c: Client) -> None:
     c.use('default')
     c.put('')
     with pytest.raises(TimedOutError):
-        c.reserve(timeout=timedelta())
+        c.reserve(timeout=0)
 
 
 @with_beanstalkd(watch=['static', 'dynamic'])
@@ -112,11 +112,11 @@ def test_initialize_watch_multiple(c: Client) -> None:
     c.put(b'rust')
     c.use('dynamic')
     c.put(b'python')
-    job = c.reserve(timeout=timedelta())
+    job = c.reserve(timeout=0)
     assert job.body == 'haskell'
-    job = c.reserve(timeout=timedelta())
+    job = c.reserve(timeout=0)
     assert job.body == 'rust'
-    job = c.reserve(timeout=timedelta())
+    job = c.reserve(timeout=0)
     assert job.body == 'python'
 
 
@@ -152,14 +152,14 @@ def test_peek_ready(c: Client) -> None:
 
 @with_beanstalkd()
 def test_peek_ready_not_found(c: Client) -> None:
-    c.put('delayed', delay=timedelta(seconds=10))
+    c.put('delayed', delay=10)
     with pytest.raises(NotFoundError):
         c.peek_ready()
 
 
 @with_beanstalkd()
 def test_peek_delayed(c: Client) -> None:
-    id = c.put('delayed', delay=timedelta(seconds=10))
+    id = c.put('delayed', delay=10)
     job = c.peek_delayed()
     assert job.id == id
     assert job.body == 'delayed'
@@ -190,8 +190,8 @@ def test_peek_buried_not_found(c: Client) -> None:
 
 @with_beanstalkd()
 def test_kick(c: Client) -> None:
-    c.put('a delayed job', delay=timedelta(hours=1))
-    c.put('another delayed job', delay=timedelta(hours=1))
+    c.put('a delayed job', delay=30)
+    c.put('another delayed job', delay=45)
     c.put('a ready job')
     job = c.reserve()
     c.bury(job)
@@ -201,9 +201,9 @@ def test_kick(c: Client) -> None:
 
 @with_beanstalkd()
 def test_kick_job(c: Client) -> None:
-    id = c.put('a delayed job', delay=timedelta(hours=1))
+    id = c.put('a delayed job', delay=3600)
     c.kick_job(id)
-    c.reserve(timeout=timedelta())
+    c.reserve(timeout=0)
 
 
 @with_beanstalkd()
@@ -215,7 +215,7 @@ def test_stats_job(c: Client) -> None:
         'pri': DEFAULT_PRIORITY,
         'age': 0,
         'delay': 0,
-        'ttr': DEFAULT_TTR.total_seconds(),
+        'ttr': DEFAULT_TTR,
         'time-left': 0,
         'file': 0,
         'reserves': 0,
