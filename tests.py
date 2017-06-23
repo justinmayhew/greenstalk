@@ -1,8 +1,9 @@
 import os
 import subprocess
 import time
+from contextlib import contextmanager
 from datetime import datetime, timedelta
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
 
 import pytest
 
@@ -29,6 +30,15 @@ def with_beanstalkd(**kwargs: Any) -> Callable:
     return decorator
 
 
+@contextmanager
+def assert_seconds(n: int) -> Iterator[None]:
+    start = datetime.now()
+    yield
+    duration = datetime.now() - start
+    assert duration >= timedelta(seconds=n)
+    assert duration <= timedelta(seconds=n, milliseconds=50)
+
+
 @with_beanstalkd()
 def test_basic_usage(c: Client) -> None:
     c.use('emails')
@@ -53,15 +63,15 @@ def test_put_priority(c: Client) -> None:
 
 @with_beanstalkd()
 def test_delays(c: Client) -> None:
-    c.put('delayed', delay=1)
-    before = datetime.now()
-    job = c.reserve()
-    assert job.body == 'delayed'
-    assert datetime.now() - before >= timedelta(seconds=1)
-    c.release(job, delay=2)
-    with pytest.raises(TimedOutError):
-        c.reserve(timeout=1)
-    job = c.reserve(timeout=1)
+    with assert_seconds(1):
+        c.put('delayed', delay=1)
+        job = c.reserve()
+        assert job.body == 'delayed'
+    with assert_seconds(2):
+        c.release(job, delay=2)
+        with pytest.raises(TimedOutError):
+            c.reserve(timeout=1)
+        job = c.reserve(timeout=1)
     c.bury(job)
     with pytest.raises(TimedOutError):
         c.reserve(timeout=0)
@@ -70,27 +80,22 @@ def test_delays(c: Client) -> None:
 @with_beanstalkd()
 def test_ttr(c: Client) -> None:
     c.put('two second ttr', ttr=2)
-    before = datetime.now()
-    job = c.reserve()
-    with pytest.raises(DeadlineSoonError):
-        c.reserve()
-    c.touch(job)
-    with pytest.raises(DeadlineSoonError):
-        c.reserve()
+    with assert_seconds(1):
+        job = c.reserve()
+        with pytest.raises(DeadlineSoonError):
+            c.reserve()
+    with assert_seconds(1):
+        c.touch(job)
+        with pytest.raises(DeadlineSoonError):
+            c.reserve()
     c.release(job)
-    delta = datetime.now() - before
-    assert delta >= timedelta(seconds=1, milliseconds=950)
-    assert delta <= timedelta(seconds=2, milliseconds=50)
 
 
 @with_beanstalkd()
 def test_reserve_raises_on_timeout(c: Client) -> None:
-    before = datetime.now()
-    with pytest.raises(TimedOutError):
-        c.reserve(timeout=1)
-    delta = datetime.now() - before
-    assert delta >= timedelta(seconds=1)
-    assert delta <= timedelta(seconds=1, milliseconds=50)
+    with assert_seconds(1):
+        with pytest.raises(TimedOutError):
+            c.reserve(timeout=1)
 
 
 @with_beanstalkd(use='hosts', watch='hosts')
