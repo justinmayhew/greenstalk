@@ -8,6 +8,7 @@ API Reference
     :members:
 
 .. autoclass:: greenstalk.Error
+.. autoclass:: greenstalk.UnknownResponseError
 .. autoclass:: greenstalk.BeanstalkdError
 .. autoclass:: greenstalk.BadFormatError
 .. autoclass:: greenstalk.BuriedError
@@ -21,4 +22,3 @@ API Reference
 .. autoclass:: greenstalk.OutOfMemoryError
 .. autoclass:: greenstalk.TimedOutError
 .. autoclass:: greenstalk.UnknownCommandError
-.. autoclass:: greenstalk.UnknownResponseError

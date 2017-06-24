@@ -13,6 +13,7 @@ DEFAULT_TTR = 60
 
 
 class Job:
+    """A job returned from the server."""
     __slots__ = ('id', 'body')
 
     def __init__(self, id: int, body: Body) -> None:
@@ -24,18 +25,31 @@ JobOrID = Union[Job, int]
 
 
 class Error(Exception):
-    pass
+    """Base class for non-connection related exceptions. Connection related
+    issues use the built-in ``ConnectionError``.
+    """
+
+
+class UnknownResponseError(Error):
+    """The server sent a response that this client does not understand."""
+
+    def __init__(self, status: bytes, values: List[bytes]) -> None:
+        self.status = status
+        self.values = values
 
 
 class BeanstalkdError(Error):
-    """An error read from a beanstalkd response."""
+    """Base class for error messages returned from the server."""
 
 
 class BadFormatError(BeanstalkdError):
-    pass
+    """The client sent a malformed command."""
 
 
 class BuriedError(BeanstalkdError):
+    """The server ran out of memory trying to grow the priority queue and had to
+    bury the job.
+    """
 
     def __init__(self, values: List[bytes] = None) -> None:
         if values:
@@ -45,43 +59,48 @@ class BuriedError(BeanstalkdError):
 
 
 class DeadlineSoonError(BeanstalkdError):
-    pass
+    """The client has a reserved job timing out within the next second."""
 
 
 class DrainingError(BeanstalkdError):
-    pass
+    """The client tried to insert a job while the server was in drain mode."""
 
 
 class ExpectedCrlfError(BeanstalkdError):
-    pass
+    """The client sent a job body without a trailing CRLF."""
 
 
 class InternalError(BeanstalkdError):
-    pass
+    """The server detected an internal error."""
 
 
 class JobTooBigError(BeanstalkdError):
-    pass
+    """The client attempted to insert a job larger than ``max-job-size``."""
 
 
 class NotFoundError(BeanstalkdError):
-    pass
+    """For the delete, release, bury, and kick commands, it means that the job
+    does not exist or is not reserved by the client.
+
+    For the peek commands, it means the requested job does not exist or that
+    there are no jobs in the requested state.
+    """
 
 
 class NotIgnoredError(BeanstalkdError):
-    pass
+    """The client attempted to ignore the only tube on its watch list."""
 
 
 class OutOfMemoryError(BeanstalkdError):
-    pass
+    """The server could not allocate enough memory for a job."""
 
 
 class TimedOutError(BeanstalkdError):
-    pass
+    """A job could not be reserved within the specified timeout."""
 
 
 class UnknownCommandError(BeanstalkdError):
-    pass
+    """The client sent a command that the server does not understand."""
 
 
 ERROR_RESPONSES = {
@@ -98,13 +117,6 @@ ERROR_RESPONSES = {
     b'TIMED_OUT':       TimedOutError,
     b'UNKNOWN_COMMAND': UnknownCommandError,
 }
-
-
-class UnknownResponseError(Error):
-
-    def __init__(self, status: bytes, values: List[bytes]) -> None:
-        self.status = status
-        self.values = values
 
 
 class Client:
