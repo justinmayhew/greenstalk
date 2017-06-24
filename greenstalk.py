@@ -174,15 +174,26 @@ class Client:
         data = self._reader.read(size + 2)
         return _parse_chunk(data, size)
 
-    def _read_job(self, values: List[bytes]) -> Job:
-        assert len(values) == 2
-        body = self._read_chunk(int(values[1]))
-        return Job(int(values[0]), self._decode_body(body))
+    def _int_cmd(self, cmd: bytes, expected: bytes) -> int:
+        n, = self._send_cmd(cmd, expected)
+        return int(n)
 
-    def _decode_body(self, body: bytes) -> Body:
-        if self.encoding is not None:
-            return body.decode(self.encoding)
-        return body
+    def _job_cmd(self, cmd: bytes, expected: bytes) -> Job:
+        id, size = (int(n) for n in self._send_cmd(cmd, expected))
+        chunk = self._read_chunk(size)
+        if self.encoding is None:
+            body = chunk  # type: Body
+        else:
+            body = chunk.decode(self.encoding)
+        return Job(id, body)
+
+    def _peek_cmd(self, cmd: bytes) -> Job:
+        return self._job_cmd(cmd, b'FOUND')
+
+    def _stats_cmd(self, cmd: bytes) -> Stats:
+        size = self._int_cmd(cmd, b'OK')
+        chunk = self._read_chunk(size)
+        return _parse_simple_yaml(chunk)
 
     def put(self,
             body: Body,
@@ -202,18 +213,15 @@ class Client:
             if self.encoding is None:
                 raise TypeError("Unable to encode string with no encoding set")
             body = body.encode(self.encoding)
-
         cmd = b'put %d %d %d %d\r\n%b' % (priority, delay, ttr, len(body), body)
-        values = self._send_cmd(cmd, b'INSERTED')
-        return int(values[0])
+        return self._int_cmd(cmd, b'INSERTED')
 
     def use(self, tube: str) -> None:
         """Changes the currently used tube.
 
         :param tube: Name of the tube to use.
         """
-        cmd = b'use %b' % tube.encode('ascii')
-        self._send_cmd(cmd, b'USING')
+        self._send_cmd(b'use %b' % tube.encode('ascii'), b'USING')
 
     def reserve(self, timeout: Optional[int] = None) -> Job:
         """Reserves a job from a tube on the watch list, giving this client
@@ -229,16 +237,14 @@ class Client:
             cmd = b'reserve'
         else:
             cmd = b'reserve-with-timeout %d' % timeout
-        values = self._send_cmd(cmd, b'RESERVED')
-        return self._read_job(values)
+        return self._job_cmd(cmd, b'RESERVED')
 
     def delete(self, job: JobOrID) -> None:
         """Deletes a job.
 
         :param job: Job or the ID of the job to delete.
         """
-        cmd = b'delete %d' % _to_id(job)
-        self._send_cmd(cmd, b'DELETED')
+        self._send_cmd(b'delete %d' % _to_id(job), b'DELETED')
 
     def release(self,
                 job: Job,
@@ -251,8 +257,7 @@ class Client:
         :param priority: Priority of the job.
         :param delay: The number of seconds to delay the job for.
         """
-        cmd = b'release %d %d %d' % (job.id, priority, delay)
-        self._send_cmd(cmd, b'RELEASED')
+        self._send_cmd(b'release %d %d %d' % (job.id, priority, delay), b'RELEASED')
 
     def bury(self, job: Job, priority: int = DEFAULT_PRIORITY) -> None:
         """Buries a reserved job. This is typically done if the job could not be
@@ -261,16 +266,14 @@ class Client:
         :param job: Job to bury.
         :param priority: Priority of the job.
         """
-        cmd = b'bury %d %d' % (job.id, priority)
-        self._send_cmd(cmd, b'BURIED')
+        self._send_cmd(b'bury %d %d' % (job.id, priority), b'BURIED')
 
     def touch(self, job: Job) -> None:
         """Refreshes the TTR of a reserved job.
 
         :param job: Job to touch.
         """
-        cmd = b'touch %d' % job.id
-        self._send_cmd(cmd, b'TOUCHED')
+        self._send_cmd(b'touch %d' % job.id, b'TOUCHED')
 
     def watch(self, tube: str) -> int:
         """Adds a tube to the watch list. Returns the number of tubes this
@@ -278,9 +281,7 @@ class Client:
 
         :param tube: Name of the tube to watch.
         """
-        cmd = b'watch %b' % tube.encode('ascii')
-        values = self._send_cmd(cmd, b'WATCHING')
-        return int(values[0])
+        return self._int_cmd(b'watch %b' % tube.encode('ascii'), b'WATCHING')
 
     def ignore(self, tube: str) -> int:
         """Removes a tube from the watch list. Returns the number of tubes this
@@ -288,37 +289,26 @@ class Client:
 
         :param tube: Name of the tube to ignore.
         """
-        cmd = b'ignore %b' % tube.encode('ascii')
-        values = self._send_cmd(cmd, b'WATCHING')
-        return int(values[0])
+        return self._int_cmd(b'ignore %b' % tube.encode('ascii'), b'WATCHING')
 
     def peek(self, id: int) -> Job:
         """Returns a job by ID.
 
         :param id: ID of the job to return.
         """
-        # TODO: this should only return the body.
-        cmd = b'peek %d' % id
-        values = self._send_cmd(cmd, b'FOUND')
-        return self._read_job(values)
+        return self._peek_cmd(b'peek %d' % id)
 
     def peek_ready(self) -> Job:
         """Returns the next ready job in the currently used tube."""
-        cmd = b'peek-ready'
-        values = self._send_cmd(cmd, b'FOUND')
-        return self._read_job(values)
+        return self._peek_cmd(b'peek-ready')
 
     def peek_delayed(self) -> Job:
         """Returns the next available delayed job in the currently used tube."""
-        cmd = b'peek-delayed'
-        values = self._send_cmd(cmd, b'FOUND')
-        return self._read_job(values)
+        return self._peek_cmd(b'peek-delayed')
 
     def peek_buried(self) -> Job:
         """Returns the oldest buried job in the currently used tube."""
-        cmd = b'peek-buried'
-        values = self._send_cmd(cmd, b'FOUND')
-        return self._read_job(values)
+        return self._peek_cmd(b'peek-buried')
 
     def kick(self, bound: int) -> int:
         """Moves delayed and buried jobs into the ready queue. Only jobs from
@@ -329,44 +319,32 @@ class Client:
 
         :param bound: Maximum number of jobs to move.
         """
-        cmd = b'kick %d' % bound
-        values = self._send_cmd(cmd, b'KICKED')
-        return int(values[0])
+        return self._int_cmd(b'kick %d' % bound, b'KICKED')
 
     def kick_job(self, job: JobOrID) -> None:
         """Moves a delayed or buried job into the ready queue.
 
         :param job: Job or the ID of the job to move.
         """
-        cmd = b'kick-job %d' % _to_id(job)
-        self._send_cmd(cmd, b'KICKED')
+        self._send_cmd(b'kick-job %d' % _to_id(job), b'KICKED')
 
     def stats_job(self, job: JobOrID) -> Stats:
         """Returns job statistics.
 
         :param job: Job or the ID of the job.
         """
-        cmd = b'stats-job %d' % _to_id(job)
-        values = self._send_cmd(cmd, b'OK')
-        data = self._read_chunk(int(values[0]))
-        return _parse_simple_yaml(data)
+        return self._stats_cmd(b'stats-job %d' % _to_id(job))
 
     def stats_tube(self, tube: str) -> Stats:
         """Returns tube statistics.
 
         :param tube: Name of the tube.
         """
-        cmd = b'stats-tube %b' % tube.encode('ascii')
-        values = self._send_cmd(cmd, b'OK')
-        data = self._read_chunk(int(values[0]))
-        return _parse_simple_yaml(data)
+        return self._stats_cmd(b'stats-tube %b' % tube.encode('ascii'))
 
     def stats(self) -> Stats:
         """Returns system statistics."""
-        cmd = b'stats'
-        values = self._send_cmd(cmd, b'OK')
-        data = self._read_chunk(int(values[0]))
-        return _parse_simple_yaml(data)
+        return self._stats_cmd(b'stats')
 
 
 def _to_id(j: JobOrID) -> int:
