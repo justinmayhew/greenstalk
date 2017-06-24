@@ -8,7 +8,7 @@ from typing import Any, Callable, Iterator
 import pytest
 
 from greenstalk import (
-    DEFAULT_PRIORITY, DEFAULT_TTR, BuriedError, Client, DeadlineSoonError, Job,
+    DEFAULT_PRIORITY, DEFAULT_TTR, BuriedError, Client, DeadlineSoonError,
     JobTooBigError, NotFoundError, NotIgnoredError, TimedOutError,
     UnknownResponseError, _parse_chunk, _parse_response
 )
