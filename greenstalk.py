@@ -123,11 +123,12 @@ class Client:
     """A client implementing the beanstalk protocol. Upon creation a TCP
     connection with beanstalkd is established and tubes are initialized.
 
-    :param host: IP or hostname of the beanstalkd instance.
-    :param port: Port of the beanstalkd instance.
-    :param encoding: The encoding to encode and decode jobs with.
-    :param use: Initialize the currently used tube.
-    :param watch: Initialize the watch list.
+    :param host: The IP or hostname of the server.
+    :param port: The port the server is running on.
+    :param encoding: The encoding used to encode and decode job bodies.
+    :param use: The tube to use after connecting.
+    :param watch: The tubes to watch after connecting. The ``default`` tube will
+                  be ignored if it's not included.
     """
 
     def __init__(self,
@@ -202,7 +203,7 @@ class Client:
             ttr: int = DEFAULT_TTR) -> int:
         """Inserts a job into the currently used tube and returns the job ID.
 
-        :param body: Data representing the job.
+        :param body: The data representing the job.
         :param priority: An integer between 0 and 4,294,967,295 where 0 is the
                          most urgent.
         :param delay: The number of seconds to delay the job for.
@@ -219,7 +220,7 @@ class Client:
     def use(self, tube: str) -> None:
         """Changes the currently used tube.
 
-        :param tube: Name of the tube to use.
+        :param tube: The tube to use.
         """
         self._send_cmd(b'use %b' % tube.encode('ascii'), b'USING')
 
@@ -242,7 +243,7 @@ class Client:
     def delete(self, job: JobOrID) -> None:
         """Deletes a job.
 
-        :param job: Job or the ID of the job to delete.
+        :param job: The job or job ID to delete.
         """
         self._send_cmd(b'delete %d' % _to_id(job), b'DELETED')
 
@@ -250,28 +251,28 @@ class Client:
                 job: Job,
                 priority: int = DEFAULT_PRIORITY,
                 delay: int = DEFAULT_DELAY) -> None:
-        """Releases a reserved job. This is typically done if the job could not
-        be finished and a retry is desired.
+        """Releases a reserved job.
 
-        :param job: Job to release.
-        :param priority: Priority of the job.
+        :param job: The job to release.
+        :param priority: An integer between 0 and 4,294,967,295 where 0 is the
+                         most urgent.
         :param delay: The number of seconds to delay the job for.
         """
         self._send_cmd(b'release %d %d %d' % (job.id, priority, delay), b'RELEASED')
 
     def bury(self, job: Job, priority: int = DEFAULT_PRIORITY) -> None:
-        """Buries a reserved job. This is typically done if the job could not be
-        finished and a retry is **not** desired.
+        """Buries a reserved job.
 
-        :param job: Job to bury.
-        :param priority: Priority of the job.
+        :param job: The job to bury.
+        :param priority: An integer between 0 and 4,294,967,295 where 0 is the
+                         most urgent.
         """
         self._send_cmd(b'bury %d %d' % (job.id, priority), b'BURIED')
 
     def touch(self, job: Job) -> None:
         """Refreshes the TTR of a reserved job.
 
-        :param job: Job to touch.
+        :param job: The job to touch.
         """
         self._send_cmd(b'touch %d' % job.id, b'TOUCHED')
 
@@ -279,7 +280,7 @@ class Client:
         """Adds a tube to the watch list. Returns the number of tubes this
         client is watching.
 
-        :param tube: Name of the tube to watch.
+        :param tube: The tube to watch.
         """
         return self._int_cmd(b'watch %b' % tube.encode('ascii'), b'WATCHING')
 
@@ -287,14 +288,14 @@ class Client:
         """Removes a tube from the watch list. Returns the number of tubes this
         client is watching.
 
-        :param tube: Name of the tube to ignore.
+        :param tube: The tube to ignore.
         """
         return self._int_cmd(b'ignore %b' % tube.encode('ascii'), b'WATCHING')
 
     def peek(self, id: int) -> Job:
         """Returns a job by ID.
 
-        :param id: ID of the job to return.
+        :param id: The ID of the job to peek.
         """
         return self._peek_cmd(b'peek %d' % id)
 
@@ -317,28 +318,28 @@ class Client:
         A kick will only move jobs in a single state. If there are any buried
         jobs, only those will be moved. Otherwise delayed jobs will be moved.
 
-        :param bound: Maximum number of jobs to move.
+        :param bound: The maximum number of jobs to kick.
         """
         return self._int_cmd(b'kick %d' % bound, b'KICKED')
 
     def kick_job(self, job: JobOrID) -> None:
         """Moves a delayed or buried job into the ready queue.
 
-        :param job: Job or the ID of the job to move.
+        :param job: The job or job ID to kick.
         """
         self._send_cmd(b'kick-job %d' % _to_id(job), b'KICKED')
 
     def stats_job(self, job: JobOrID) -> Stats:
         """Returns job statistics.
 
-        :param job: Job or the ID of the job.
+        :param job: The job or job ID to return statistics for.
         """
         return self._stats_cmd(b'stats-job %d' % _to_id(job))
 
     def stats_tube(self, tube: str) -> Stats:
         """Returns tube statistics.
 
-        :param tube: Name of the tube.
+        :param tube: The tube to return statistics for.
         """
         return self._stats_cmd(b'stats-tube %b' % tube.encode('ascii'))
 
