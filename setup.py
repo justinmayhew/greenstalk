@@ -5,7 +5,7 @@ from greenstalk import __version__
 setup(
     name='greenstalk',
     version=__version__,
-    description='A client for beanstalkd: the simple, fast work queue',
+    description='A Python 3 client for the beanstalkd work queue',
     long_description=open('README.rst').read(),
     author='Justin Mayhew',
     author_email='mayhew@live.ca',
