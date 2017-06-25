@@ -347,6 +347,14 @@ class Client:
         """Returns system statistics."""
         return self._stats_cmd(b'stats')
 
+    def pause_tube(self, tube: str, delay: int) -> None:
+        """Prevents jobs from being reserved from a tube for a period of time.
+
+        :param tube: The tube to pause.
+        :param delay: The number of seconds to pause the tube for.
+        """
+        self._send_cmd(b'pause-tube %b %d' % (tube.encode('ascii'), delay), b'PAUSED')
+
 
 def _to_id(j: JobOrID) -> int:
     return j.id if isinstance(j, Job) else j

@@ -304,6 +304,14 @@ def test_stats(c: Client) -> None:
     assert 'hostname' in s
 
 
+@with_beanstalkd()
+def test_pause_tube(c: Client) -> None:
+    c.put('')
+    with assert_seconds(1):
+        c.pause_tube('default', 1)
+        c.reserve()
+
+
 @with_beanstalkd(use='default')
 def test_max_job_size(c: Client) -> None:
     with pytest.raises(JobTooBigError):
