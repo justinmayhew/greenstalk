@@ -1,8 +1,11 @@
 Greenstalk
 ==========
 
-.. image:: https://secure.travis-ci.org/mayhewj/greenstalk.png?branch=master
-        :target: https://travis-ci.org/mayhewj/greenstalk
+.. image:: https://img.shields.io/pypi/v/greenstalk.svg
+    :target: https://pypi.python.org/pypi/greenstalk
+
+.. image:: https://secure.travis-ci.org/mayhewj/greenstalk.svg?branch=master
+    :target: https://travis-ci.org/mayhewj/greenstalk
 
 .. image:: https://codecov.io/github/mayhewj/greenstalk/coverage.svg?branch=master
     :target: https://codecov.io/github/mayhewj/greenstalk
