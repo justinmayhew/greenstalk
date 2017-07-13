@@ -12,6 +12,7 @@ setup(
     url='https://github.com/mayhewj/greenstalk',
     license='MIT',
     py_modules=['greenstalk'],
+    install_requires=['typing'],
     classifiers=[
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
