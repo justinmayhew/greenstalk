@@ -1,8 +1,8 @@
 Quickstart
 ==========
 
-Let's start queueing! Before we get started, make sure that Greenstalk is
-installed and ``beanstalkd`` is running.
+Before getting started, ensure that Greenstalk is :doc:`installed <install>` and
+``beanstalkd`` is running.
 
 Setup
 -----
@@ -31,6 +31,11 @@ only required argument:
     >>> queue.put('hello')
     1
 
+Jobs are inserted into the currently used tube, which defaults to ``default``.
+The currently used tube can be changed via :meth:`use <greenstalk.Client.use>`.
+It can also be set with the ``use`` argument when creating a
+:class:`Client <greenstalk.Client>`.
+
 Consuming Jobs
 --------------
 
@@ -44,6 +49,12 @@ until a job is reserved (unless the ``timeout`` argument is used):
     1
     >>> job.body
     'hello'
+
+Jobs will only be reserved from tubes on the watch list, which initially
+contains a single tube, ``default``. You can add tubes to the watch list with
+:meth:`watch <greenstalk.Client.watch>` and remove them with :meth:`ignore
+<greenstalk.Client.ignore>`. For convenience, it can be set with the ``watch``
+argument when creating a :class:`Client <greenstalk.Client>`.
 
 ``beanstalkd`` guarantees that jobs are only reserved by a single consumer
 simultaneously. Let's go ahead and tell the server that we've successfully
