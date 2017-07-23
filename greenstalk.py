@@ -398,11 +398,11 @@ def _parse_simple_yaml(buf: bytes) -> Stats:
 
     stats = {}
     for line in data.splitlines():
-        key, value = line.split(': ', 1)  # type: Tuple[str, Union[str, int]]
+        key, value = line.split(': ', 1)
         try:
-            value = int(value)
+            v = int(value)  # type: Union[int, str]
         except ValueError:
-            pass
-        stats[key] = value
+            v = value
+        stats[key] = v
 
     return stats
