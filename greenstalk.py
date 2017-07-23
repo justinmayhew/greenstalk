@@ -312,8 +312,10 @@ class Client:
         return self._peek_cmd(b'peek-buried')
 
     def kick(self, bound: int) -> int:
-        """Moves delayed and buried jobs into the ready queue. Only jobs from
-        the currently used tube are moved.
+        """Moves delayed and buried jobs into the ready queue and returns the
+        number of jobs effected.
+
+        Only jobs from the currently used tube are moved.
 
         A kick will only move jobs in a single state. If there are any buried
         jobs, only those will be moved. Otherwise delayed jobs will be moved.
