@@ -13,16 +13,17 @@ from greenstalk import (
     UnknownResponseError, _parse_chunk, _parse_response
 )
 
+PORT = 4444
+
 
 def with_beanstalkd(**kwargs: Any) -> Callable:
     def decorator(test: Callable) -> Callable:
         def wrapper() -> None:
-            port = 4444
-            cmd = ('beanstalkd', '-l', '127.0.0.1', '-p', str(port))
+            cmd = ('beanstalkd', '-l', '127.0.0.1', '-p', str(PORT))
             with subprocess.Popen(cmd) as beanstalkd:
                 time.sleep(0.1)
                 try:
-                    with Client(port=port, **kwargs) as c:
+                    with Client(port=PORT, **kwargs) as c:
                         test(c)
                 finally:
                     beanstalkd.terminate()
@@ -322,6 +323,17 @@ def test_max_job_size(c: Client) -> None:
 def test_job_not_found(c: Client) -> None:
     with pytest.raises(NotFoundError):
         c.delete(87)
+
+
+@with_beanstalkd()
+def test_delete_job_reserved_by_other(c: Client) -> None:
+    c.put('', ttr=1)
+    other = Client(port=PORT)
+    job = other.reserve()
+    with pytest.raises(NotFoundError):
+        c.delete(job)
+    time.sleep(1)
+    c.delete(job)
 
 
 @with_beanstalkd()
