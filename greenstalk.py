@@ -207,7 +207,7 @@ class Client:
         :param priority: An integer between 0 and 4,294,967,295 where 0 is the
                          most urgent.
         :param delay: The number of seconds to delay the job for.
-        :param ttr: The maximum number of seconds a job can be reserved for
+        :param ttr: The maximum number of seconds the job can be reserved for
                     before timing out.
         """
         if isinstance(body, str):
