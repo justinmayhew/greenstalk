@@ -10,8 +10,8 @@ Greenstalk is a Python client library for communicating with the `beanstalkd
 
     import greenstalk
 
-    queue = greenstalk.Client(host='127.0.0.1', port=11300)
-    queue.put('hello')
+    with greenstalk.Client(host='127.0.0.1', port=11300) as queue:
+        queue.put('hello')
 
 - **Consumers**, processes that take jobs from a queue and execute some work:
 
@@ -19,11 +19,11 @@ Greenstalk is a Python client library for communicating with the `beanstalkd
 
     import greenstalk
 
-    queue = greenstalk.Client(host='127.0.0.1', port=11300)
-    while True:
-        job = queue.reserve()
-        print(job.body)
-        queue.delete(job)
+    with greenstalk.Client(host='127.0.0.1', port=11300) as queue:
+        while True:
+            job = queue.reserve()
+            print(job.body)
+            queue.delete(job)
 
 Contents
 --------
