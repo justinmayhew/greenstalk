@@ -2,7 +2,7 @@ Greenstalk
 ==========
 
 .. image:: https://img.shields.io/pypi/v/greenstalk.svg
-    :target: https://pypi.python.org/pypi/greenstalk
+    :target: https://pypi.org/project/greenstalk/
 
 .. image:: https://secure.travis-ci.org/mayhewj/greenstalk.svg?branch=master
     :target: https://travis-ci.org/mayhewj/greenstalk
