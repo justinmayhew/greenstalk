@@ -196,6 +196,11 @@ class Client:
         chunk = self._read_chunk(size)
         return _parse_simple_yaml(chunk)
 
+    def _list_cmd(self, cmd: bytes) -> List[str]:
+        size = self._int_cmd(cmd, b'OK')
+        chunk = self._read_chunk(size)
+        return _parse_simple_yaml_list(chunk)
+
     def put(self,
             body: Body,
             priority: int = DEFAULT_PRIORITY,
@@ -275,6 +280,10 @@ class Client:
         :param job: The job to touch.
         """
         self._send_cmd(b'touch %d' % job.id, b'TOUCHED')
+
+    def tubes(self) -> List[str]:
+        """Returns tubes list."""
+        return self._list_cmd(b'list-tubes')
 
     def watch(self, tube: str) -> int:
         """Adds a tube to the watch list. Returns the number of tubes this
@@ -406,3 +415,17 @@ def _parse_simple_yaml(buf: bytes) -> Stats:
         stats[key] = v
 
     return stats
+
+
+def _parse_simple_yaml_list(buf: bytes) -> List[str]:
+    data = buf.decode('ascii')
+
+    assert data[:4] == '---\n'
+    data = data[4:]  # strip YAML head
+
+    list = []
+    for line in data.splitlines():
+        assert line.startswith('- ')
+        list.append(line[2:])
+
+    return list
