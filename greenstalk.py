@@ -1,7 +1,7 @@
 import socket
 from typing import Any, BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
 
-__version__ = '0.5.2'
+__version__ = '1.0.0'
 
 Body = Union[bytes, str]
 Stats = Dict[str, Union[str, int]]
