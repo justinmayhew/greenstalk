@@ -306,6 +306,30 @@ def test_stats(c: Client) -> None:
 
 
 @with_beanstalkd()
+def test_tubes(c: Client) -> None:
+    assert c.tubes() == ['default']
+    c.use('a')
+    assert set(c.tubes()) == {'default', 'a'}
+    c.watch('b')
+    c.watch('c')
+    assert set(c.tubes()) == {'default', 'a', 'b', 'c'}
+
+
+@with_beanstalkd()
+def test_using(c: Client) -> None:
+    assert c.using() == 'default'
+    c.use('another')
+    assert c.using() == 'another'
+
+
+@with_beanstalkd()
+def test_watching(c: Client) -> None:
+    assert c.watching() == ['default']
+    c.watch('another')
+    assert set(c.watching()) == {'default', 'another'}
+
+
+@with_beanstalkd()
 def test_pause_tube(c: Client) -> None:
     c.put('')
     with assert_seconds(1):

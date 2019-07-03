@@ -281,10 +281,6 @@ class Client:
         """
         self._send_cmd(b'touch %d' % job.id, b'TOUCHED')
 
-    def tubes(self) -> List[str]:
-        """Returns tubes list."""
-        return self._list_cmd(b'list-tubes')
-
     def watch(self, tube: str) -> int:
         """Adds a tube to the watch list. Returns the number of tubes this
         client is watching.
@@ -357,6 +353,19 @@ class Client:
     def stats(self) -> Stats:
         """Returns system statistics."""
         return self._stats_cmd(b'stats')
+
+    def tubes(self) -> List[str]:
+        """Returns a list of all existing tubes."""
+        return self._list_cmd(b'list-tubes')
+
+    def using(self) -> str:
+        """Returns the tube currently being used by the client."""
+        tube, = self._send_cmd(b'list-tube-used', b'USING')
+        return tube.decode('ascii')
+
+    def watching(self) -> List[str]:
+        """Returns a list of tubes currently being watched by the client."""
+        return self._list_cmd(b'list-tubes-watched')
 
     def pause_tube(self, tube: str, delay: int) -> None:
         """Prevents jobs from being reserved from a tube for a period of time.
