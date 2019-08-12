@@ -356,8 +356,6 @@ def test_delete_job_reserved_by_other(c: Client) -> None:
     job = other.reserve()
     with pytest.raises(NotFoundError):
         c.delete(job)
-    time.sleep(1)
-    c.delete(job)
 
 
 @with_beanstalkd()
