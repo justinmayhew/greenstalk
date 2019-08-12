@@ -2,7 +2,7 @@ Welcome to Greenstalk
 =====================
 
 Greenstalk is a Python client library for communicating with the `beanstalkd
-<https://kr.github.io/beanstalkd/>`_ work queue.  It makes it easy to write:
+<https://beanstalkd.github.io/>`_ work queue.  It makes it easy to write:
 
 - **Producers**, processes that insert jobs into a queue:
 
@@ -48,5 +48,5 @@ Inspiration
 
 Greenstalk is heavily inspired by the following libraries:
 
-- `Go - beanstalk <https://github.com/kr/beanstalk>`_
+- `Go - beanstalk <https://github.com/beanstalkd/go-beanstalk>`_
 - `Python - beanstalkc <https://github.com/earl/beanstalkc/>`_

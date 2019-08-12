@@ -172,4 +172,4 @@ Here's a great flowchart from the ``beanstalkd`` `protocol documentation`_::
                          |  delete
                           `--------> *poof*
 
-.. _protocol documentation: https://raw.githubusercontent.com/kr/beanstalkd/master/doc/protocol.txt
+.. _protocol documentation: https://raw.githubusercontent.com/beanstalkd/beanstalkd/master/doc/protocol.txt

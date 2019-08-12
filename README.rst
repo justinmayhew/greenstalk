@@ -46,6 +46,6 @@ Documentation is available on `Read the Docs
 Resources
 ---------
 
-- `beanstalkd FAQ <https://github.com/kr/beanstalkd/wiki/faq>`_
+- `beanstalkd FAQ <https://github.com/beanstalkd/beanstalkd/wiki/faq>`_
 - `Protocol documentation
-  <https://raw.githubusercontent.com/kr/beanstalkd/master/doc/protocol.txt>`_
+  <https://raw.githubusercontent.com/beanstalkd/beanstalkd/master/doc/protocol.txt>`_
