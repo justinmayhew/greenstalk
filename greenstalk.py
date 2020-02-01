@@ -154,6 +154,9 @@ class Client:
             if DEFAULT_TUBE not in watch:
                 self.ignore(DEFAULT_TUBE)
 
+    def __del__(self) -> None:
+        self.close()
+
     def __enter__(self) -> 'Client':
         return self
 
