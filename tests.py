@@ -352,10 +352,10 @@ def test_job_not_found(c: Client) -> None:
 @with_beanstalkd()
 def test_delete_job_reserved_by_other(c: Client) -> None:
     c.put('', ttr=1)
-    other = Client(port=PORT)
-    job = other.reserve()
-    with pytest.raises(NotFoundError):
-        c.delete(job)
+    with Client(port=PORT) as other:
+        job = other.reserve()
+        with pytest.raises(NotFoundError):
+            c.delete(job)
 
 
 @with_beanstalkd()
