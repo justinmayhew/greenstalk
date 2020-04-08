@@ -4,11 +4,11 @@ Greenstalk
 .. image:: https://img.shields.io/pypi/v/greenstalk.svg
     :target: https://pypi.org/project/greenstalk/
 
-.. image:: https://secure.travis-ci.org/mayhewj/greenstalk.svg?branch=master
-    :target: https://travis-ci.org/mayhewj/greenstalk
+.. image:: https://secure.travis-ci.org/justinmayhew/greenstalk.svg?branch=master
+    :target: https://travis-ci.org/justinmayhew/greenstalk
 
-.. image:: https://codecov.io/github/mayhewj/greenstalk/coverage.svg?branch=master
-    :target: https://codecov.io/github/mayhewj/greenstalk
+.. image:: https://codecov.io/github/justinmayhew/greenstalk/coverage.svg?branch=master
+    :target: https://codecov.io/github/justinmayhew/greenstalk
 
 Installation
 ------------

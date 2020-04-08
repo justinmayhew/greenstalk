@@ -40,8 +40,8 @@ Links
 
 This project is developed on GitHub. Contributions are welcome.
 
-- `Code <https://github.com/mayhewj/greenstalk>`_
-- `Issue tracker <https://github.com/mayhewj/greenstalk/issues>`_
+- `Code <https://github.com/justinmayhew/greenstalk>`_
+- `Issue tracker <https://github.com/justinmayhew/greenstalk/issues>`_
 
 Inspiration
 -----------

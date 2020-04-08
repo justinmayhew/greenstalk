@@ -9,7 +9,7 @@ setup(
     long_description=open('README.rst').read(),
     author='Justin Mayhew',
     author_email='mayhew@live.ca',
-    url='https://github.com/mayhewj/greenstalk',
+    url='https://github.com/justinmayhew/greenstalk',
     license='MIT',
     py_modules=['greenstalk'],
     classifiers=[
