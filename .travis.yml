@@ -1,5 +1,4 @@
-dist: xenial
-sudo: required
+dist: bionic
 language: python
 python:
   - 3.5
@@ -9,7 +8,7 @@ python:
   - nightly
 env:
   global:
-    - BEANSTALKD_VERSION=1.11
+    - BEANSTALKD_VERSION=1.12
 install:
   - pip install -r requirements.txt
   - pip install codecov
