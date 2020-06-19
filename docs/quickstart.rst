@@ -14,11 +14,18 @@ Begin by importing the library:
     >>> import greenstalk
 
 Create a :class:`Client <greenstalk.Client>`, which immediately connects to
-``beanstalkd`` on the host and port specified:
+the server on the host and port specified:
 
 .. code-block:: pycon3
 
-    >>> queue = greenstalk.Client(host='127.0.0.1', port=11300)
+    >>> queue = greenstalk.Client(('127.0.0.1', 11300))
+
+Alternatively, if your server is listening on a Unix domain socket, pass the
+socket path instead:
+
+.. code-block:: pycon3
+
+    >>> queue = greenstalk.Client('/var/run/beanstalkd/socket')
 
 Inserting Jobs
 --------------

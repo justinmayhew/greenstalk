@@ -26,7 +26,7 @@ Getting Started
 .. code-block:: pycon
 
     >>> import greenstalk
-    >>> queue = greenstalk.Client(host='127.0.0.1', port=11300)
+    >>> queue = greenstalk.Client(('127.0.0.1', 11300))
     >>> queue.put('hello')
     1
     >>> job = queue.reserve()

@@ -8,22 +8,29 @@ from typing import Any, Callable, Iterator
 import pytest
 
 from greenstalk import (
-    DEFAULT_PRIORITY, DEFAULT_TTR, BuriedError, Client, DeadlineSoonError,
-    JobTooBigError, NotFoundError, NotIgnoredError, TimedOutError,
-    UnknownResponseError, _parse_chunk, _parse_response
+    DEFAULT_PRIORITY, DEFAULT_TTR, Address, BuriedError, Client,
+    DeadlineSoonError, JobTooBigError, NotFoundError, NotIgnoredError,
+    TimedOutError, UnknownResponseError, _parse_chunk, _parse_response
 )
 
-PORT = 4444
+BEANSTALKD_PATH = os.getenv('BEANSTALKD_PATH', 'beanstalkd')
+DEFAULT_INET_ADDRESS = ('127.0.0.1', 4444)
+DEFAULT_UNIX_ADDRESS = '/tmp/greenstalk-test.sock'
 
 
-def with_beanstalkd(**kwargs: Any) -> Callable:
+def with_beanstalkd(address: Address = DEFAULT_INET_ADDRESS, **kwargs: Any) -> Callable:
     def decorator(test: Callable) -> Callable:
         def wrapper() -> None:
-            cmd = ('beanstalkd', '-l', '127.0.0.1', '-p', str(PORT))
+            cmd = [BEANSTALKD_PATH]
+            if isinstance(address, str):
+                cmd.extend(['-l', 'unix:' + address])
+            else:
+                host, port = address
+                cmd.extend(['-l', host, '-p', str(port)])
             with subprocess.Popen(cmd) as beanstalkd:
                 time.sleep(0.1)
                 try:
-                    with Client(port=PORT, **kwargs) as c:
+                    with Client(address, **kwargs) as c:
                         test(c)
                 finally:
                     beanstalkd.terminate()
@@ -40,7 +47,7 @@ def assert_seconds(n: int) -> Iterator[None]:
     assert duration <= timedelta(seconds=n, milliseconds=50)
 
 
-@with_beanstalkd()
+@with_beanstalkd(DEFAULT_UNIX_ADDRESS)
 def test_basic_usage(c: Client) -> None:
     c.use('emails')
     id = c.put('测试@example.com')
@@ -52,7 +59,7 @@ def test_basic_usage(c: Client) -> None:
     c.delete(job)
 
 
-@with_beanstalkd()
+@with_beanstalkd(DEFAULT_UNIX_ADDRESS)
 def test_put_priority(c: Client) -> None:
     c.put('2', priority=2)
     c.put('1', priority=1)
@@ -62,7 +69,7 @@ def test_put_priority(c: Client) -> None:
     assert job.body == '2'
 
 
-@with_beanstalkd()
+@with_beanstalkd(DEFAULT_UNIX_ADDRESS)
 def test_delays(c: Client) -> None:
     with assert_seconds(1):
         c.put('delayed', delay=1)
@@ -78,7 +85,7 @@ def test_delays(c: Client) -> None:
         c.reserve(timeout=0)
 
 
-@with_beanstalkd()
+@with_beanstalkd(DEFAULT_UNIX_ADDRESS)
 def test_ttr(c: Client) -> None:
     c.put('two second ttr', ttr=2)
     with assert_seconds(1):
@@ -92,7 +99,7 @@ def test_ttr(c: Client) -> None:
     c.release(job)
 
 
-@with_beanstalkd()
+@with_beanstalkd(DEFAULT_UNIX_ADDRESS)
 def test_reserve_raises_on_timeout(c: Client) -> None:
     with assert_seconds(1):
         with pytest.raises(TimedOutError):
@@ -352,7 +359,7 @@ def test_job_not_found(c: Client) -> None:
 @with_beanstalkd()
 def test_delete_job_reserved_by_other(c: Client) -> None:
     c.put('', ttr=1)
-    with Client(port=PORT) as other:
+    with Client(DEFAULT_INET_ADDRESS) as other:
         job = other.reserve()
         with pytest.raises(NotFoundError):
             c.delete(job)

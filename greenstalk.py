@@ -3,6 +3,7 @@ from typing import Any, BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
 
 __version__ = '1.0.1'
 
+Address = Union[Tuple[str, int], str]
 Body = Union[bytes, str]
 Stats = Dict[str, Union[str, int]]
 
@@ -120,11 +121,10 @@ ERROR_RESPONSES = {
 
 
 class Client:
-    """A client implementing the beanstalk protocol. Upon creation a TCP
-    connection with beanstalkd is established and tubes are initialized.
+    """A client implementing the beanstalk protocol. Upon creation a connection
+    with beanstalkd is established and tubes are initialized.
 
-    :param host: The IP or hostname of the server.
-    :param port: The port the server is running on.
+    :param address: A socket address pair (host, port) or a Unix domain socket path.
     :param encoding: The encoding used to encode and decode job bodies.
     :param use: The tube to use after connecting.
     :param watch: The tubes to watch after connecting. The ``default`` tube will
@@ -132,12 +132,16 @@ class Client:
     """
 
     def __init__(self,
-                 host: str = '127.0.0.1',
-                 port: int = 11300,
+                 address: Address,
                  encoding: Optional[str] = 'utf-8',
                  use: str = DEFAULT_TUBE,
                  watch: Union[str, Iterable[str]] = DEFAULT_TUBE) -> None:
-        self._sock = socket.create_connection((host, port))
+        if isinstance(address, str):
+            self._sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            self._sock.connect(address)
+        else:
+            self._sock = socket.create_connection(address)
+
         self._reader = self._sock.makefile('rb')  # type: BinaryIO
         self.encoding = encoding
 
@@ -161,8 +165,8 @@ class Client:
         self.close()
 
     def close(self) -> None:
-        """Closes the TCP connection to beanstalkd. The client instance should
-        not be used after calling this method."""
+        """Closes the connection to beanstalkd. The client instance should not
+        be used after calling this method."""
         self._reader.close()
         self._sock.close()
 
