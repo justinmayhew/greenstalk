@@ -1,7 +1,7 @@
 import socket
 from typing import Any, BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
 
-__version__ = '1.0.1'
+__version__ = '2.0.0'
 
 Address = Union[Tuple[str, int], str]
 Body = Union[bytes, str]
