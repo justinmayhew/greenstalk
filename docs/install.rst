@@ -6,7 +6,7 @@ installed by running:
 
 .. code-block:: bash
 
-    $ pip3 install greenstalk
+    pip install greenstalk
 
 If you don't have ``beanstalkd`` installed, it's available in most package
 repositories.
@@ -15,10 +15,10 @@ Debian and Ubuntu:
 
 .. code-block:: bash
 
-    $ sudo apt install beanstalkd
+    sudo apt install beanstalkd
 
 macOS with Homebrew:
 
 .. code-block:: bash
 
-    $ brew install beanstalkd
+    brew install beanstalkd

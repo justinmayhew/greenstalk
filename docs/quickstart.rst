@@ -18,14 +18,14 @@ the server on the host and port specified:
 
 .. code-block:: pycon3
 
-    >>> queue = greenstalk.Client(('127.0.0.1', 11300))
+    >>> client = greenstalk.Client(('127.0.0.1', 11300))
 
 Alternatively, if your server is listening on a Unix domain socket, pass the
 socket path instead:
 
 .. code-block:: pycon3
 
-    >>> queue = greenstalk.Client('/var/run/beanstalkd/socket')
+    >>> client = greenstalk.Client('/var/run/beanstalkd/socket')
 
 Inserting Jobs
 --------------
@@ -35,7 +35,7 @@ only required argument:
 
 .. code-block:: pycon3
 
-    >>> queue.put('hello')
+    >>> client.put('hello')
     1
 
 Jobs are inserted into the currently used tube, which defaults to ``default``.
@@ -51,7 +51,7 @@ until a job is reserved (unless the ``timeout`` argument is used):
 
 .. code-block:: pycon3
 
-    >>> job = queue.reserve()
+    >>> job = client.reserve()
     >>> job.id
     1
     >>> job.body
@@ -69,7 +69,7 @@ completed the job using :meth:`delete <greenstalk.Client.delete>`:
 
 .. code-block:: pycon3
 
-    >>> queue.delete(job)
+    >>> client.delete(job)
 
 Here's what you can do with a reserved job to change its state:
 
@@ -103,13 +103,13 @@ this:
         'name': user.name,
         'code': code,
     })
-    queue.put(body)
+    client.put(body)
 
 The consumer would then do the inverse:
 
 .. code-block:: python3
 
-    job = queue.reserve()
+    job = client.reserve()
     data = json.loads(job.body)
     send_registration_email(data['email'], data['name'], data['code'])
 
