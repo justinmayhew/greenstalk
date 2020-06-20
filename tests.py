@@ -106,6 +106,24 @@ def test_reserve_raises_on_timeout(c: Client) -> None:
             c.reserve(timeout=1)
 
 
+@with_beanstalkd()
+def test_reserve_job(c: Client) -> None:
+    id1 = c.put('a')
+    id2 = c.put('b')
+    j1 = c.reserve_job(id1)
+    j2 = c.reserve_job(id2)
+    with pytest.raises(NotFoundError):
+        c.reserve_job(id1)
+    with pytest.raises(NotFoundError):
+        c.reserve_job(id2)
+    with pytest.raises(TimedOutError):
+        c.reserve(timeout=0)
+    c.delete(j1)
+    c.delete(j2)
+    with pytest.raises(TimedOutError):
+        c.reserve(timeout=0)
+
+
 @with_beanstalkd(use='hosts', watch='hosts')
 def test_initialize_with_tubes(c: Client) -> None:
     c.put('www.example.com')

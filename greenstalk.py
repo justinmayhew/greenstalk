@@ -249,6 +249,17 @@ class Client:
             cmd = b'reserve-with-timeout %d' % timeout
         return self._job_cmd(cmd, b'RESERVED')
 
+    def reserve_job(self, id: int) -> Job:
+        """Reserves a job by ID, giving this client exclusive access to it for
+        the TTR. Returns the reserved job.
+
+        A :class:`NotFoundError <greenstalk.NotFoundError>` is raised if a job
+        with the specified ID could not be reserved.
+
+        :param id: The ID of the job to reserve.
+        """
+        return self._job_cmd(b'reserve-job %d' % id, b'RESERVED')
+
     def delete(self, job: JobOrID) -> None:
         """Deletes a job.
 
