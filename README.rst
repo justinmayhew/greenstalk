@@ -8,8 +8,8 @@ commands in the `protocol`_.
 .. image:: https://img.shields.io/pypi/v/greenstalk.svg
     :target: https://pypi.org/project/greenstalk/
 
-.. image:: https://secure.travis-ci.org/justinmayhew/greenstalk.svg?branch=master
-    :target: https://travis-ci.org/justinmayhew/greenstalk
+.. image:: https://github.com/justinmayhew/greenstalk/workflows/CI/badge.svg?branch=master
+    :target: https://github.com/justinmayhew/greenstalk/actions
 
 .. image:: https://codecov.io/github/justinmayhew/greenstalk/coverage.svg?branch=master
     :target: https://codecov.io/github/justinmayhew/greenstalk
