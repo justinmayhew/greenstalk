@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.5, 3.6, 3.7, 3.8, 3.9]
+        python-version: [3.9, 3.8, 3.7, 3.6, 3.5]
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python ${{ matrix.python-version }}
@@ -22,8 +22,10 @@ jobs:
           tar -xzvf v${BEANSTALKD_VERSION}.tar.gz
           pushd beanstalkd-${BEANSTALKD_VERSION} && make && sudo make install && popd
           pip install -r requirements.txt
-          pip install codecov
       - name: Run tests
         run: make test
       - name: Send coverage report to Codecov
-        run: codecov
+        if: strategy.job-index == 0
+        run: |
+          pip install codecov
+          codecov
