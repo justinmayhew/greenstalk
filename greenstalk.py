@@ -1,5 +1,5 @@
 import socket
-from typing import Any, BinaryIO, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 __version__ = '2.0.0'
 
@@ -54,7 +54,7 @@ class BuriedError(BeanstalkdError):
 
     def __init__(self, values: List[bytes] = None) -> None:
         if values:
-            self.id = int(values[0])  # type: Optional[int]
+            self.id: Optional[int] = int(values[0])
         else:
             self.id = None
 
@@ -142,7 +142,7 @@ class Client:
         else:
             self._sock = socket.create_connection(address)
 
-        self._reader = self._sock.makefile('rb')  # type: BinaryIO
+        self._reader = self._sock.makefile('rb')
         self.encoding = encoding
 
         if use != DEFAULT_TUBE:
@@ -187,7 +187,7 @@ class Client:
         id, size = (int(n) for n in self._send_cmd(cmd, expected))
         chunk = self._read_chunk(size)
         if self.encoding is None:
-            body = chunk  # type: Body
+            body: Body = chunk
         else:
             body = chunk.decode(self.encoding)
         return Job(id, body)
@@ -433,7 +433,7 @@ def _parse_simple_yaml(buf: bytes) -> Stats:
     for line in data.splitlines():
         key, value = line.split(': ', 1)
         try:
-            v = int(value)  # type: Union[int, str]
+            v: Union[int, str] = int(value)
         except ValueError:
             v = value
         stats[key] = v
