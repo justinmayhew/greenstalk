@@ -1,7 +1,7 @@
 Installation
 ============
 
-Greenstalk supports Python 3.5 and later. It's available on PyPI and can be
+Greenstalk supports Python 3.6 and later. It's available on PyPI and can be
 installed by running:
 
 .. code-block:: bash
