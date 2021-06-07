@@ -1,4 +1,7 @@
 test:
+	PYTHONWARNINGS=default pytest tests.py
+
+test-with-coverage:
 	PYTHONWARNINGS=default pytest --cov=greenstalk tests.py
 
 lint:
