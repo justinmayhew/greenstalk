@@ -11,9 +11,6 @@ commands in the `protocol`_.
 .. image:: https://github.com/justinmayhew/greenstalk/workflows/CI/badge.svg?branch=master
     :target: https://github.com/justinmayhew/greenstalk/actions
 
-.. image:: https://codecov.io/github/justinmayhew/greenstalk/coverage.svg?branch=master
-    :target: https://codecov.io/github/justinmayhew/greenstalk
-
 Getting Started
 ---------------
 

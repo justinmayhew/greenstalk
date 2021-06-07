@@ -24,8 +24,3 @@ jobs:
           pip install -r requirements.txt
       - name: Run tests
         run: make test
-      - name: Send coverage report to Codecov
-        if: strategy.job-index == 0
-        run: |
-          pip install codecov
-          codecov
