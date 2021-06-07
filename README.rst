@@ -8,7 +8,7 @@ commands in the `protocol`_.
 .. image:: https://img.shields.io/pypi/v/greenstalk.svg
     :target: https://pypi.org/project/greenstalk/
 
-.. image:: https://github.com/justinmayhew/greenstalk/workflows/CI/badge.svg?branch=master
+.. image:: https://github.com/justinmayhew/greenstalk/workflows/CI/badge.svg?branch=main
     :target: https://github.com/justinmayhew/greenstalk/actions
 
 Getting Started
