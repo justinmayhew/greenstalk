@@ -22,6 +22,8 @@ jobs:
           tar -xzvf v${BEANSTALKD_VERSION}.tar.gz
           pushd beanstalkd-${BEANSTALKD_VERSION} && make && sudo make install && popd
       - name: Install Python dependencies
-        run: pip install pytest
+        run: |
+          pip install pytest
+          pip install --use-feature=in-tree-build .
       - name: Run tests
         run: make test
