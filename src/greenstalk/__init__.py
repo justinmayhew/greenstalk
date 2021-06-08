@@ -444,7 +444,7 @@ def _parse_simple_yaml(buf: bytes) -> Stats:
     assert data[:4] == '---\n'
     data = data[4:]  # strip YAML head
 
-    stats = {}
+    stats: Stats = {}
     for line in data.splitlines():
         key, value = line.split(': ', 1)
         try:
@@ -462,9 +462,9 @@ def _parse_simple_yaml_list(buf: bytes) -> List[str]:
     assert data[:4] == '---\n'
     data = data[4:]  # strip YAML head
 
-    list = []
+    values: List[str] = []
     for line in data.splitlines():
         assert line.startswith('- ')
-        list.append(line[2:])
+        values.append(line[2:])
 
-    return list
+    return values
