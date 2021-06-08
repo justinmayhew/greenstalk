@@ -1,5 +1,6 @@
 # pyright: strict, reportPrivateUsage=false
 import os
+import signal
 import subprocess
 import time
 from contextlib import contextmanager
@@ -10,9 +11,9 @@ import pytest
 
 from greenstalk import (
     DEFAULT_PRIORITY, DEFAULT_TTR, DEFAULT_TUBE, Address, BuriedError,
-    BuriedWithJobIDError, Client, DeadlineSoonError, JobTooBigError,
-    NotFoundError, NotIgnoredError, TimedOutError, UnknownResponseError,
-    _parse_chunk, _parse_response
+    BuriedWithJobIDError, Client, DeadlineSoonError, DrainingError,
+    JobTooBigError, NotFoundError, NotIgnoredError, TimedOutError,
+    UnknownResponseError, _parse_chunk, _parse_response
 )
 
 BEANSTALKD_PATH = os.getenv('BEANSTALKD_PATH', 'beanstalkd')
@@ -330,6 +331,7 @@ def test_stats(c: Client) -> None:
     assert 'binlog-max-size' in s
     assert 'id' in s
     assert 'hostname' in s
+    assert s['draining'] == 'false'
 
 
 @with_beanstalkd()
@@ -389,6 +391,22 @@ def test_delete_job_reserved_by_other(c: Client) -> None:
 def test_not_ignored(c: Client) -> None:
     with pytest.raises(NotIgnoredError):
         c.ignore('default')
+
+
+def test_drain_mode() -> None:
+    cmd = [BEANSTALKD_PATH, '-l', 'unix:' + DEFAULT_UNIX_ADDRESS]
+    with subprocess.Popen(cmd) as beanstalkd:
+        time.sleep(0.1)
+        try:
+            with Client(address=DEFAULT_UNIX_ADDRESS) as c:
+                assert c.put(b'first') == 1
+                beanstalkd.send_signal(signal.SIGUSR1)
+                time.sleep(0.1)
+                with pytest.raises(DrainingError):
+                    c.put(b'second')
+                assert c.stats()['draining'] == 'true'
+        finally:
+            beanstalkd.terminate()
 
 
 def test_buried_error_with_id() -> None:
