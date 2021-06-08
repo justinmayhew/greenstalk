@@ -192,12 +192,12 @@ class Client:
     def _stats_cmd(self, cmd: bytes) -> Stats:
         size = self._int_cmd(cmd, b"OK")
         chunk = self._read_chunk(size)
-        return _parse_simple_yaml(chunk)
+        return _parse_stats(chunk)
 
     def _list_cmd(self, cmd: bytes) -> List[str]:
         size = self._int_cmd(cmd, b"OK")
         chunk = self._read_chunk(size)
-        return _parse_simple_yaml_list(chunk)
+        return _parse_list(chunk)
 
     def put(
         self,
@@ -444,7 +444,7 @@ def _parse_chunk(data: bytes, size: int) -> bytes:
     return data
 
 
-def _parse_simple_yaml(buf: bytes) -> Stats:
+def _parse_stats(buf: bytes) -> Stats:
     data = buf.decode("ascii")
 
     assert data[:4] == "---\n"
@@ -462,7 +462,7 @@ def _parse_simple_yaml(buf: bytes) -> Stats:
     return stats
 
 
-def _parse_simple_yaml_list(buf: bytes) -> List[str]:
+def _parse_list(buf: bytes) -> List[str]:
     data = buf.decode("ascii")
 
     assert data[:4] == "---\n"
