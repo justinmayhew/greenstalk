@@ -6,8 +6,8 @@ test-with-coverage:
 
 lint:
 	flake8 src/ tests.py
-	isort src/ tests.py --multi-line 5
-	mypy src/ tests.py --ignore-missing-imports --strict-optional --disallow-untyped-defs
+	isort --multi-line=5 src/ tests.py
+	mypy --strict src/ tests.py
 
 html-docs:
 	# This is the command readthedocs uses to build the site.
