@@ -1,11 +1,25 @@
 API Reference
 =============
 
-.. autoclass:: greenstalk.Client
-    :members:
+Job
+---
 
 .. autoclass:: greenstalk.Job
     :members:
+
+Client
+------
+
+.. autoclass:: greenstalk.Client
+    :members:
+
+Exceptions
+----------
+
+For completeness all errors that ``beanstalkd`` can return are listed here.
+:class:`BadFormatError <greenstalk.BadFormatError>` and
+:class:`ExpectedCrlfError <greenstalk.ExpectedCrlfError>` *should* be
+unreachable unless there's a bug in this library.
 
 .. autoclass:: greenstalk.Error
 
