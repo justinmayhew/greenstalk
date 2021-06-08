@@ -1,8 +1,8 @@
-Quickstart
-==========
+Overview
+========
 
 Before getting started, ensure that Greenstalk is :doc:`installed <install>` and
-``beanstalkd`` is running.
+the server is running.
 
 Setup
 -----
@@ -63,7 +63,7 @@ contains a single tube, ``default``. You can add tubes to the watch list with
 <greenstalk.Client.ignore>`. For convenience, it can be set with the ``watch``
 argument when creating a :class:`Client <greenstalk.Client>`.
 
-``beanstalkd`` guarantees that jobs are only reserved by a single consumer
+The server guarantees that jobs are only reserved by a single consumer
 simultaneously. Let's go ahead and tell the server that we've successfully
 completed the job using :meth:`delete <greenstalk.Client.delete>`:
 
@@ -136,8 +136,8 @@ Every job has an associated time to run (TTR) value specified by the ``ttr``
 argument to the :meth:`put <greenstalk.Client.put>` method. It defaults to 60
 seconds.
 
-As soon as a job is reserved, ``beanstalkd`` starts a timer. If the client
-doesn't send a :meth:`delete <greenstalk.Client.delete>`, :meth:`release
+The server starts a timer when a job is reserved. If the consumer doesn't send a
+:meth:`delete <greenstalk.Client.delete>`, :meth:`release
 <greenstalk.Client.release>`, or :meth:`bury <greenstalk.Client.bury>` command
 within the TTR, the job will time out and be released back into the ready queue.
 
@@ -147,7 +147,7 @@ If more time is required to complete a job, the :meth:`touch
 Job Lifecycle
 -------------
 
-Here's a great flowchart from the ``beanstalkd`` `protocol documentation`_::
+Here's a great flowchart from the beanstalkd `protocol documentation`_::
 
      put with delay               release with delay
     ----------------> [DELAYED] <------------.

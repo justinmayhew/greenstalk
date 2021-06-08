@@ -1,5 +1,5 @@
-Welcome to Greenstalk
-=====================
+Greenstalk Documentation
+========================
 
 Greenstalk is a Python client library for communicating with the `beanstalkd
 <https://beanstalkd.github.io/>`_ work queue.  It makes it easy to write:
@@ -25,6 +25,11 @@ Greenstalk is a Python client library for communicating with the `beanstalkd
             print(job.body.decode('utf-8'))
             client.delete(job)
 
+This library is a thin wrapper over the wire protocol. The documentation doesn't
+attempt to fully explain the semantics of the beanstalk protocol. It's assumed
+that users of this library will be referring to the official beanstalkd
+documentation.
+
 Contents
 --------
 
@@ -32,21 +37,5 @@ Contents
    :maxdepth: 2
 
    install
-   quickstart
+   overview
    api
-
-Links
------
-
-This project is developed on GitHub. Contributions are welcome.
-
-- `Code <https://github.com/justinmayhew/greenstalk>`_
-- `Issue tracker <https://github.com/justinmayhew/greenstalk/issues>`_
-
-Inspiration
------------
-
-Greenstalk is heavily inspired by the following libraries:
-
-- `Go - beanstalk <https://github.com/beanstalkd/go-beanstalk>`_
-- `Python - beanstalkc <https://github.com/earl/beanstalkc/>`_

@@ -1,23 +1,19 @@
 Installation
 ============
 
-Greenstalk supports Python 3.6 and later. It's available on PyPI and can be
-installed by running:
+Greenstalk supports Python 3.6 and later. To install it:
 
 .. code-block:: bash
 
     pip install greenstalk
 
-If you don't have ``beanstalkd`` installed, it's available in most package
-repositories.
-
-Debian and Ubuntu:
+The server is available in most package repositories. For Debian and Ubuntu:
 
 .. code-block:: bash
 
     sudo apt install beanstalkd
 
-macOS with Homebrew:
+For macOS with Homebrew:
 
 .. code-block:: bash
 

@@ -11,8 +11,8 @@ commands in the `protocol`_.
 .. image:: https://github.com/justinmayhew/greenstalk/workflows/CI/badge.svg?branch=main
     :target: https://github.com/justinmayhew/greenstalk/actions
 
-Getting Started
----------------
+Quickstart
+----------
 
 .. code-block:: pycon
 
@@ -27,9 +27,6 @@ Getting Started
     b'hello'
     >>> client.delete(job)
     >>> client.close()
-
-Documentation
--------------
 
 Documentation is available on `Read the Docs`_.
 
