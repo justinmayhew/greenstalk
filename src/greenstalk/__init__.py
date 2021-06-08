@@ -14,7 +14,6 @@ DEFAULT_TTR = 60
 
 class Job:
     """A job returned from the server."""
-    __slots__ = ('id', 'body')
 
     def __init__(self, id: int, body: bytes) -> None:
         #: A server-generated unique identifier assigned to the job on creation.
