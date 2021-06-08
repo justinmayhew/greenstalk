@@ -17,8 +17,12 @@ class Job:
     __slots__ = ('id', 'body')
 
     def __init__(self, id: int, body: bytes) -> None:
-        self.id = id
-        self.body = body
+        #: A server-generated unique identifier assigned to the job on creation.
+        self.id: int = id
+
+        #: The content of the job. Also referred to as the message or payload.
+        #: Producers and consumers need to agree on how these bytes are interpreted.
+        self.body: bytes = body
 
 
 JobOrID = Union[Job, int]
