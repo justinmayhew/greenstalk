@@ -50,31 +50,31 @@ def assert_seconds(n: int) -> Iterator[None]:
 @with_beanstalkd(DEFAULT_UNIX_ADDRESS)
 def test_basic_usage(c: Client) -> None:
     c.use('emails')
-    id = c.put('测试@example.com')
+    id = c.put('测试@example.com'.encode('utf-8'))
     c.watch('emails')
     c.ignore('default')
     job = c.reserve()
     assert id == job.id
-    assert job.body == '测试@example.com'
+    assert job.body.decode('utf-8') == '测试@example.com'
     c.delete(job)
 
 
 @with_beanstalkd(DEFAULT_UNIX_ADDRESS)
 def test_put_priority(c: Client) -> None:
-    c.put('2', priority=2)
-    c.put('1', priority=1)
+    c.put(b'2', priority=2)
+    c.put(b'1', priority=1)
     job = c.reserve()
-    assert job.body == '1'
+    assert job.body == b'1'
     job = c.reserve()
-    assert job.body == '2'
+    assert job.body == b'2'
 
 
 @with_beanstalkd(DEFAULT_UNIX_ADDRESS)
 def test_delays(c: Client) -> None:
     with assert_seconds(1):
-        c.put('delayed', delay=1)
+        c.put(b'delayed', delay=1)
         job = c.reserve()
-        assert job.body == 'delayed'
+        assert job.body == b'delayed'
     with assert_seconds(2):
         c.release(job, delay=2)
         with pytest.raises(TimedOutError):
@@ -87,7 +87,7 @@ def test_delays(c: Client) -> None:
 
 @with_beanstalkd(DEFAULT_UNIX_ADDRESS)
 def test_ttr(c: Client) -> None:
-    c.put('two second ttr', ttr=2)
+    c.put(b'two second ttr', ttr=2)
     with assert_seconds(1):
         job = c.reserve()
         with pytest.raises(DeadlineSoonError):
@@ -108,8 +108,8 @@ def test_reserve_raises_on_timeout(c: Client) -> None:
 
 @with_beanstalkd()
 def test_reserve_job(c: Client) -> None:
-    id1 = c.put('a')
-    id2 = c.put('b')
+    id1 = c.put(b'a')
+    id2 = c.put(b'b')
     j1 = c.reserve_job(id1)
     j2 = c.reserve_job(id2)
     with pytest.raises(NotFoundError):
@@ -126,12 +126,12 @@ def test_reserve_job(c: Client) -> None:
 
 @with_beanstalkd(use='hosts', watch='hosts')
 def test_initialize_with_tubes(c: Client) -> None:
-    c.put('www.example.com')
+    c.put(b'www.example.com')
     job = c.reserve()
-    assert job.body == 'www.example.com'
+    assert job.body == b'www.example.com'
     c.delete(job.id)
     c.use('default')
-    c.put('')
+    c.put(b'')
     with pytest.raises(TimedOutError):
         c.reserve(timeout=0)
 
@@ -144,27 +144,19 @@ def test_initialize_watch_multiple(c: Client) -> None:
     c.use('dynamic')
     c.put(b'python')
     job = c.reserve(timeout=0)
-    assert job.body == 'haskell'
+    assert job.body == b'haskell'
     job = c.reserve(timeout=0)
-    assert job.body == 'rust'
+    assert job.body == b'rust'
     job = c.reserve(timeout=0)
-    assert job.body == 'python'
-
-
-@with_beanstalkd(encoding=None)
-def test_binary_jobs(c: Client) -> None:
-    data = os.urandom(4096)
-    c.put(data)
-    job = c.reserve()
-    assert job.body == data
+    assert job.body == b'python'
 
 
 @with_beanstalkd()
 def test_peek(c: Client) -> None:
-    id = c.put('job')
+    id = c.put(b'job')
     job = c.peek(id)
     assert job.id == id
-    assert job.body == 'job'
+    assert job.body == b'job'
 
 
 @with_beanstalkd()
@@ -175,25 +167,25 @@ def test_peek_not_found(c: Client) -> None:
 
 @with_beanstalkd()
 def test_peek_ready(c: Client) -> None:
-    id = c.put('ready')
+    id = c.put(b'ready')
     job = c.peek_ready()
     assert job.id == id
-    assert job.body == 'ready'
+    assert job.body == b'ready'
 
 
 @with_beanstalkd()
 def test_peek_ready_not_found(c: Client) -> None:
-    c.put('delayed', delay=10)
+    c.put(b'delayed', delay=10)
     with pytest.raises(NotFoundError):
         c.peek_ready()
 
 
 @with_beanstalkd()
 def test_peek_delayed(c: Client) -> None:
-    id = c.put('delayed', delay=10)
+    id = c.put(b'delayed', delay=10)
     job = c.peek_delayed()
     assert job.id == id
-    assert job.body == 'delayed'
+    assert job.body == b'delayed'
 
 
 @with_beanstalkd()
@@ -204,26 +196,26 @@ def test_peek_delayed_not_found(c: Client) -> None:
 
 @with_beanstalkd()
 def test_peek_buried(c: Client) -> None:
-    id = c.put('buried')
+    id = c.put(b'buried')
     job = c.reserve()
     c.bury(job)
     job = c.peek_buried()
     assert job.id == id
-    assert job.body == 'buried'
+    assert job.body == b'buried'
 
 
 @with_beanstalkd()
 def test_peek_buried_not_found(c: Client) -> None:
-    c.put('a ready job')
+    c.put(b'a ready job')
     with pytest.raises(NotFoundError):
         c.peek_buried()
 
 
 @with_beanstalkd()
 def test_kick(c: Client) -> None:
-    c.put('a delayed job', delay=30)
-    c.put('another delayed job', delay=45)
-    c.put('a ready job')
+    c.put(b'a delayed job', delay=30)
+    c.put(b'another delayed job', delay=45)
+    c.put(b'a ready job')
     job = c.reserve()
     c.bury(job)
     assert c.kick(10) == 1
@@ -232,14 +224,14 @@ def test_kick(c: Client) -> None:
 
 @with_beanstalkd()
 def test_kick_job(c: Client) -> None:
-    id = c.put('a delayed job', delay=3600)
+    id = c.put(b'a delayed job', delay=3600)
     c.kick_job(id)
     c.reserve(timeout=0)
 
 
 @with_beanstalkd()
 def test_stats_job(c: Client) -> None:
-    assert c.stats_job(c.put('job')) == {
+    assert c.stats_job(c.put(b'job')) == {
         'id': 1,
         'tube': 'default',
         'state': 'ready',
@@ -356,7 +348,7 @@ def test_watching(c: Client) -> None:
 
 @with_beanstalkd()
 def test_pause_tube(c: Client) -> None:
-    c.put('')
+    c.put(b'')
     with assert_seconds(1):
         c.pause_tube('default', 1)
         c.reserve()
@@ -376,7 +368,7 @@ def test_job_not_found(c: Client) -> None:
 
 @with_beanstalkd()
 def test_delete_job_reserved_by_other(c: Client) -> None:
-    c.put('', ttr=1)
+    c.put(b'', ttr=1)
     with Client(DEFAULT_INET_ADDRESS) as other:
         job = other.reserve()
         with pytest.raises(NotFoundError):
@@ -387,14 +379,6 @@ def test_delete_job_reserved_by_other(c: Client) -> None:
 def test_not_ignored(c: Client) -> None:
     with pytest.raises(NotIgnoredError):
         c.ignore('default')
-
-
-def test_str_body_no_encoding() -> None:
-    class Fake:
-        def __init__(self) -> None:
-            self.encoding = None
-    with pytest.raises(TypeError):
-        Client.put(Fake(), 'a str job')  # type: ignore
 
 
 def test_buried_error_with_id() -> None:

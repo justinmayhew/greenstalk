@@ -35,7 +35,7 @@ only required argument:
 
 .. code-block:: pycon3
 
-    >>> client.put('hello')
+    >>> client.put(b'hello')
     1
 
 Jobs are inserted into the currently used tube, which defaults to ``default``.
@@ -55,7 +55,7 @@ until a job is reserved (unless the ``timeout`` argument is used):
     >>> job.id
     1
     >>> job.body
-    'hello'
+    b'hello'
 
 Jobs will only be reserved from tubes on the watch list, which initially
 contains a single tube, ``default``. You can add tubes to the watch list with
@@ -85,24 +85,24 @@ Here's what you can do with a reserved job to change its state:
 |             |                  | inspection                                  |
 +-------------+------------------+---------------------------------------------+
 
-Body Serialization
-------------------
+Body Serialization and Encoding
+-------------------------------
 
-From ``beanstalkd``'s point of view, the body of a job is just an opaque
-sequence of bytes. It's up to the clients to agree on a serialization format to
-represent the data required to complete the job.
+The server does not inspect the contents of job bodies, it's only concerned with
+routing them between clients. This gives clients full control over how they're
+sent and received on the underlying connection.
 
-In the context of a web application where a user just signed up and we need to
-send an email with a registration code, the producer may look something like
-this:
+JSON serialized payloads encoded in UTF-8 are a great default representation.
+
+Here's an example showing how a producer and consumer (likely running in
+separate processes) could communicate a user registration email job.
+
+Producer:
 
 .. code-block:: python3
 
-    body = json.dumps({
-        'email': user.email,
-        'name': user.name,
-        'code': code,
-    })
+    payload = {'user_id': user_id}
+    body = json.dumps(payload).encode('utf-8')
     client.put(body)
 
 The consumer would then do the inverse:
@@ -110,19 +110,8 @@ The consumer would then do the inverse:
 .. code-block:: python3
 
     job = client.reserve()
-    data = json.loads(job.body)
-    send_registration_email(data['email'], data['name'], data['code'])
-
-Body Encoding
--------------
-
-When creating a :class:`Client <greenstalk.Client>`, you can use the
-``encoding`` argument to control how job bodies are encoded and decoded. It
-defaults to UTF-8.
-
-You can set the ``encoding`` to ``None`` if you're working with binary data. In
-that case, you're expected to pass in ``bytes`` (rather than ``str``) bodies,
-and ``bytes`` bodies will be returned.
+    payload = json.loads(job.body.decode('utf-8'))
+    send_registration_email(payload['user_id'])
 
 Job Priorities
 --------------

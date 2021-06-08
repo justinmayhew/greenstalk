@@ -4,7 +4,6 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 __version__ = '2.0.0'
 
 Address = Union[Tuple[str, int], str]
-Body = Union[bytes, str]
 Stats = Dict[str, Union[str, int]]
 
 DEFAULT_TUBE = 'default'
@@ -17,7 +16,7 @@ class Job:
     """A job returned from the server."""
     __slots__ = ('id', 'body')
 
-    def __init__(self, id: int, body: Body) -> None:
+    def __init__(self, id: int, body: bytes) -> None:
         self.id = id
         self.body = body
 
@@ -125,7 +124,6 @@ class Client:
     with beanstalkd is established and tubes are initialized.
 
     :param address: A socket address pair (host, port) or a Unix domain socket path.
-    :param encoding: The encoding used to encode and decode job bodies.
     :param use: The tube to use after connecting.
     :param watch: The tubes to watch after connecting. The ``default`` tube will
                   be ignored if it's not included.
@@ -133,7 +131,6 @@ class Client:
 
     def __init__(self,
                  address: Address,
-                 encoding: Optional[str] = 'utf-8',
                  use: str = DEFAULT_TUBE,
                  watch: Union[str, Iterable[str]] = DEFAULT_TUBE) -> None:
         if isinstance(address, str):
@@ -143,7 +140,6 @@ class Client:
             self._sock = socket.create_connection(address)
 
         self._reader = self._sock.makefile('rb')
-        self.encoding = encoding
 
         if use != DEFAULT_TUBE:
             self.use(use)
@@ -185,11 +181,7 @@ class Client:
 
     def _job_cmd(self, cmd: bytes, expected: bytes) -> Job:
         id, size = (int(n) for n in self._send_cmd(cmd, expected))
-        chunk = self._read_chunk(size)
-        if self.encoding is None:
-            body: Body = chunk
-        else:
-            body = chunk.decode(self.encoding)
+        body = self._read_chunk(size)
         return Job(id, body)
 
     def _peek_cmd(self, cmd: bytes) -> Job:
@@ -206,7 +198,7 @@ class Client:
         return _parse_simple_yaml_list(chunk)
 
     def put(self,
-            body: Body,
+            body: bytes,
             priority: int = DEFAULT_PRIORITY,
             delay: int = DEFAULT_DELAY,
             ttr: int = DEFAULT_TTR) -> int:
@@ -219,10 +211,6 @@ class Client:
         :param ttr: The maximum number of seconds the job can be reserved for
                     before timing out.
         """
-        if isinstance(body, str):
-            if self.encoding is None:
-                raise TypeError("Unable to encode string with no encoding set")
-            body = body.encode(self.encoding)
         cmd = b'put %d %d %d %d\r\n%b' % (priority, delay, ttr, len(body), body)
         return self._int_cmd(cmd, b'INSERTED')
 
