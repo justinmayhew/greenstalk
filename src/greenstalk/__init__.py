@@ -1,13 +1,13 @@
 import socket
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
-__version__ = '2.0.0'
+__version__ = "2.0.0"
 
 Address = Union[Tuple[str, int], str]
 Stats = Dict[str, Union[str, int]]
 
-DEFAULT_TUBE = 'default'
-DEFAULT_PRIORITY = 2**16
+DEFAULT_TUBE = "default"
+DEFAULT_PRIORITY = 2 ** 16
 DEFAULT_DELAY = 0
 DEFAULT_TTR = 60
 
@@ -129,17 +129,19 @@ class Client:
                   be ignored if it's not included.
     """
 
-    def __init__(self,
-                 address: Address,
-                 use: str = DEFAULT_TUBE,
-                 watch: Union[str, Iterable[str]] = DEFAULT_TUBE) -> None:
+    def __init__(
+        self,
+        address: Address,
+        use: str = DEFAULT_TUBE,
+        watch: Union[str, Iterable[str]] = DEFAULT_TUBE,
+    ) -> None:
         if isinstance(address, str):
             self._sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             self._sock.connect(address)
         else:
             self._sock = socket.create_connection(address)
 
-        self._reader = self._sock.makefile('rb')
+        self._reader = self._sock.makefile("rb")
 
         if use != DEFAULT_TUBE:
             self.use(use)
@@ -154,7 +156,7 @@ class Client:
             if DEFAULT_TUBE not in watch:
                 self.ignore(DEFAULT_TUBE)
 
-    def __enter__(self) -> 'Client':
+    def __enter__(self) -> "Client":
         return self
 
     def __exit__(self, *args: Any) -> None:
@@ -167,7 +169,7 @@ class Client:
         self._sock.close()
 
     def _send_cmd(self, cmd: bytes, expected: bytes) -> List[bytes]:
-        self._sock.sendall(cmd + b'\r\n')
+        self._sock.sendall(cmd + b"\r\n")
         line = self._reader.readline()
         return _parse_response(line, expected)
 
@@ -176,7 +178,7 @@ class Client:
         return _parse_chunk(data, size)
 
     def _int_cmd(self, cmd: bytes, expected: bytes) -> int:
-        n, = self._send_cmd(cmd, expected)
+        (n,) = self._send_cmd(cmd, expected)
         return int(n)
 
     def _job_cmd(self, cmd: bytes, expected: bytes) -> Job:
@@ -185,23 +187,25 @@ class Client:
         return Job(id, body)
 
     def _peek_cmd(self, cmd: bytes) -> Job:
-        return self._job_cmd(cmd, b'FOUND')
+        return self._job_cmd(cmd, b"FOUND")
 
     def _stats_cmd(self, cmd: bytes) -> Stats:
-        size = self._int_cmd(cmd, b'OK')
+        size = self._int_cmd(cmd, b"OK")
         chunk = self._read_chunk(size)
         return _parse_simple_yaml(chunk)
 
     def _list_cmd(self, cmd: bytes) -> List[str]:
-        size = self._int_cmd(cmd, b'OK')
+        size = self._int_cmd(cmd, b"OK")
         chunk = self._read_chunk(size)
         return _parse_simple_yaml_list(chunk)
 
-    def put(self,
-            body: bytes,
-            priority: int = DEFAULT_PRIORITY,
-            delay: int = DEFAULT_DELAY,
-            ttr: int = DEFAULT_TTR) -> int:
+    def put(
+        self,
+        body: bytes,
+        priority: int = DEFAULT_PRIORITY,
+        delay: int = DEFAULT_DELAY,
+        ttr: int = DEFAULT_TTR,
+    ) -> int:
         """Inserts a job into the currently used tube and returns the job ID.
 
         :param body: The data representing the job.
@@ -211,15 +215,15 @@ class Client:
         :param ttr: The maximum number of seconds the job can be reserved for
                     before timing out.
         """
-        cmd = b'put %d %d %d %d\r\n%b' % (priority, delay, ttr, len(body), body)
-        return self._int_cmd(cmd, b'INSERTED')
+        cmd = b"put %d %d %d %d\r\n%b" % (priority, delay, ttr, len(body), body)
+        return self._int_cmd(cmd, b"INSERTED")
 
     def use(self, tube: str) -> None:
         """Changes the currently used tube.
 
         :param tube: The tube to use.
         """
-        self._send_cmd(b'use %b' % tube.encode('ascii'), b'USING')
+        self._send_cmd(b"use %b" % tube.encode("ascii"), b"USING")
 
     def reserve(self, timeout: Optional[int] = None) -> Job:
         """Reserves a job from a tube on the watch list, giving this client
@@ -232,10 +236,10 @@ class Client:
         :param timeout: The maximum number of seconds to wait.
         """
         if timeout is None:
-            cmd = b'reserve'
+            cmd = b"reserve"
         else:
-            cmd = b'reserve-with-timeout %d' % timeout
-        return self._job_cmd(cmd, b'RESERVED')
+            cmd = b"reserve-with-timeout %d" % timeout
+        return self._job_cmd(cmd, b"RESERVED")
 
     def reserve_job(self, id: int) -> Job:
         """Reserves a job by ID, giving this client exclusive access to it for
@@ -246,19 +250,21 @@ class Client:
 
         :param id: The ID of the job to reserve.
         """
-        return self._job_cmd(b'reserve-job %d' % id, b'RESERVED')
+        return self._job_cmd(b"reserve-job %d" % id, b"RESERVED")
 
     def delete(self, job: JobOrID) -> None:
         """Deletes a job.
 
         :param job: The job or job ID to delete.
         """
-        self._send_cmd(b'delete %d' % _to_id(job), b'DELETED')
+        self._send_cmd(b"delete %d" % _to_id(job), b"DELETED")
 
-    def release(self,
-                job: Job,
-                priority: int = DEFAULT_PRIORITY,
-                delay: int = DEFAULT_DELAY) -> None:
+    def release(
+        self,
+        job: Job,
+        priority: int = DEFAULT_PRIORITY,
+        delay: int = DEFAULT_DELAY,
+    ) -> None:
         """Releases a reserved job.
 
         :param job: The job to release.
@@ -266,7 +272,7 @@ class Client:
                          most urgent.
         :param delay: The number of seconds to delay the job for.
         """
-        self._send_cmd(b'release %d %d %d' % (job.id, priority, delay), b'RELEASED')
+        self._send_cmd(b"release %d %d %d" % (job.id, priority, delay), b"RELEASED")
 
     def bury(self, job: Job, priority: int = DEFAULT_PRIORITY) -> None:
         """Buries a reserved job.
@@ -275,14 +281,14 @@ class Client:
         :param priority: An integer between 0 and 4,294,967,295 where 0 is the
                          most urgent.
         """
-        self._send_cmd(b'bury %d %d' % (job.id, priority), b'BURIED')
+        self._send_cmd(b"bury %d %d" % (job.id, priority), b"BURIED")
 
     def touch(self, job: Job) -> None:
         """Refreshes the TTR of a reserved job.
 
         :param job: The job to touch.
         """
-        self._send_cmd(b'touch %d' % job.id, b'TOUCHED')
+        self._send_cmd(b"touch %d" % job.id, b"TOUCHED")
 
     def watch(self, tube: str) -> int:
         """Adds a tube to the watch list. Returns the number of tubes this
@@ -290,7 +296,7 @@ class Client:
 
         :param tube: The tube to watch.
         """
-        return self._int_cmd(b'watch %b' % tube.encode('ascii'), b'WATCHING')
+        return self._int_cmd(b"watch %b" % tube.encode("ascii"), b"WATCHING")
 
     def ignore(self, tube: str) -> int:
         """Removes a tube from the watch list. Returns the number of tubes this
@@ -298,26 +304,26 @@ class Client:
 
         :param tube: The tube to ignore.
         """
-        return self._int_cmd(b'ignore %b' % tube.encode('ascii'), b'WATCHING')
+        return self._int_cmd(b"ignore %b" % tube.encode("ascii"), b"WATCHING")
 
     def peek(self, id: int) -> Job:
         """Returns a job by ID.
 
         :param id: The ID of the job to peek.
         """
-        return self._peek_cmd(b'peek %d' % id)
+        return self._peek_cmd(b"peek %d" % id)
 
     def peek_ready(self) -> Job:
         """Returns the next ready job in the currently used tube."""
-        return self._peek_cmd(b'peek-ready')
+        return self._peek_cmd(b"peek-ready")
 
     def peek_delayed(self) -> Job:
         """Returns the next available delayed job in the currently used tube."""
-        return self._peek_cmd(b'peek-delayed')
+        return self._peek_cmd(b"peek-delayed")
 
     def peek_buried(self) -> Job:
         """Returns the oldest buried job in the currently used tube."""
-        return self._peek_cmd(b'peek-buried')
+        return self._peek_cmd(b"peek-buried")
 
     def kick(self, bound: int) -> int:
         """Moves delayed and buried jobs into the ready queue and returns the
@@ -330,45 +336,45 @@ class Client:
 
         :param bound: The maximum number of jobs to kick.
         """
-        return self._int_cmd(b'kick %d' % bound, b'KICKED')
+        return self._int_cmd(b"kick %d" % bound, b"KICKED")
 
     def kick_job(self, job: JobOrID) -> None:
         """Moves a delayed or buried job into the ready queue.
 
         :param job: The job or job ID to kick.
         """
-        self._send_cmd(b'kick-job %d' % _to_id(job), b'KICKED')
+        self._send_cmd(b"kick-job %d" % _to_id(job), b"KICKED")
 
     def stats_job(self, job: JobOrID) -> Stats:
         """Returns job statistics.
 
         :param job: The job or job ID to return statistics for.
         """
-        return self._stats_cmd(b'stats-job %d' % _to_id(job))
+        return self._stats_cmd(b"stats-job %d" % _to_id(job))
 
     def stats_tube(self, tube: str) -> Stats:
         """Returns tube statistics.
 
         :param tube: The tube to return statistics for.
         """
-        return self._stats_cmd(b'stats-tube %b' % tube.encode('ascii'))
+        return self._stats_cmd(b"stats-tube %b" % tube.encode("ascii"))
 
     def stats(self) -> Stats:
         """Returns system statistics."""
-        return self._stats_cmd(b'stats')
+        return self._stats_cmd(b"stats")
 
     def tubes(self) -> List[str]:
         """Returns a list of all existing tubes."""
-        return self._list_cmd(b'list-tubes')
+        return self._list_cmd(b"list-tubes")
 
     def using(self) -> str:
         """Returns the tube currently being used by the client."""
-        tube, = self._send_cmd(b'list-tube-used', b'USING')
-        return tube.decode('ascii')
+        (tube,) = self._send_cmd(b"list-tube-used", b"USING")
+        return tube.decode("ascii")
 
     def watching(self) -> List[str]:
         """Returns a list of tubes currently being watched by the client."""
-        return self._list_cmd(b'list-tubes-watched')
+        return self._list_cmd(b"list-tubes-watched")
 
     def pause_tube(self, tube: str, delay: int) -> None:
         """Prevents jobs from being reserved from a tube for a period of time.
@@ -376,7 +382,7 @@ class Client:
         :param tube: The tube to pause.
         :param delay: The number of seconds to pause the tube for.
         """
-        self._send_cmd(b'pause-tube %b %d' % (tube.encode('ascii'), delay), b'PAUSED')
+        self._send_cmd(b"pause-tube %b %d" % (tube.encode("ascii"), delay), b"PAUSED")
 
 
 def _to_id(j: JobOrID) -> int:
@@ -387,7 +393,7 @@ def _parse_response(line: bytes, expected: bytes) -> List[bytes]:
     if not line:
         raise ConnectionError("Unexpected EOF")
 
-    assert line[-2:] == b'\r\n'
+    assert line[-2:] == b"\r\n"
     line = line[:-2]
 
     status, *values = line.split()
@@ -395,30 +401,30 @@ def _parse_response(line: bytes, expected: bytes) -> List[bytes]:
     if status == expected:
         return values
 
-    if status == b'NOT_FOUND':
+    if status == b"NOT_FOUND":
         raise NotFoundError
-    if status == b'TIMED_OUT':
+    if status == b"TIMED_OUT":
         raise TimedOutError
-    if status == b'DEADLINE_SOON':
+    if status == b"DEADLINE_SOON":
         raise DeadlineSoonError
-    if status == b'NOT_IGNORED':
+    if status == b"NOT_IGNORED":
         raise NotIgnoredError
-    if status == b'DRAINING':
+    if status == b"DRAINING":
         raise DrainingError
-    if status == b'JOB_TOO_BIG':
+    if status == b"JOB_TOO_BIG":
         raise JobTooBigError
-    if status == b'OUT_OF_MEMORY':
+    if status == b"OUT_OF_MEMORY":
         raise OutOfMemoryError
-    if status == b'INTERNAL_ERROR':
+    if status == b"INTERNAL_ERROR":
         raise InternalError
-    if status == b'BAD_FORMAT':
+    if status == b"BAD_FORMAT":
         raise BadFormatError
-    if status == b'EXPECTED_CRLF':
+    if status == b"EXPECTED_CRLF":
         raise ExpectedCrlfError
-    if status == b'UNKNOWN_COMMAND':
+    if status == b"UNKNOWN_COMMAND":
         raise UnknownCommandError
 
-    if status == b'BURIED':
+    if status == b"BURIED":
         values_len = len(values)
         if values_len == 0:
             raise BuriedError
@@ -429,7 +435,7 @@ def _parse_response(line: bytes, expected: bytes) -> List[bytes]:
 
 
 def _parse_chunk(data: bytes, size: int) -> bytes:
-    assert data[-2:] == b'\r\n'
+    assert data[-2:] == b"\r\n"
     data = data[:-2]
 
     if len(data) != size:
@@ -439,14 +445,14 @@ def _parse_chunk(data: bytes, size: int) -> bytes:
 
 
 def _parse_simple_yaml(buf: bytes) -> Stats:
-    data = buf.decode('ascii')
+    data = buf.decode("ascii")
 
-    assert data[:4] == '---\n'
+    assert data[:4] == "---\n"
     data = data[4:]  # strip YAML head
 
     stats: Stats = {}
     for line in data.splitlines():
-        key, value = line.split(': ', 1)
+        key, value = line.split(": ", 1)
         try:
             v: Union[int, str] = int(value)
         except ValueError:
@@ -457,14 +463,14 @@ def _parse_simple_yaml(buf: bytes) -> Stats:
 
 
 def _parse_simple_yaml_list(buf: bytes) -> List[str]:
-    data = buf.decode('ascii')
+    data = buf.decode("ascii")
 
-    assert data[:4] == '---\n'
+    assert data[:4] == "---\n"
     data = data[4:]  # strip YAML head
 
     values: List[str] = []
     for line in data.splitlines():
-        assert line.startswith('- ')
+        assert line.startswith("- ")
         values.append(line[2:])
 
     return values

@@ -5,8 +5,9 @@ test-with-coverage:
 	PYTHONWARNINGS=default pytest --cov=greenstalk tests.py
 
 lint:
+	black src/ tests.py
+	isort --profile=black src/ tests.py
 	flake8 src/ tests.py
-	isort --multi-line=5 src/ tests.py
 	mypy --strict src/ tests.py
 
 html-docs:
