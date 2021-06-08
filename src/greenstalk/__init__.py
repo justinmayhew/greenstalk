@@ -38,8 +38,13 @@ class UnknownResponseError(Error):
     """The server sent a response that this client does not understand."""
 
     def __init__(self, status: bytes, values: List[bytes]) -> None:
-        self.status = status
-        self.values = values
+        #: The status code of the response.
+        #: Contains ``b'SOME_ERROR'`` for the response ``b'SOME_ERROR 1 2 3\r\n'``.
+        self.status: bytes = status
+
+        #: The remaining split values after the status code.
+        #: Contains ``[b'1', b'2', b'3']`` for the response ``b'SOME_ERROR 1 2 3\r\n'``.
+        self.values: List[bytes] = values
 
 
 class BeanstalkdError(Error):
@@ -53,13 +58,21 @@ class BadFormatError(BeanstalkdError):
 class BuriedError(BeanstalkdError):
     """The server ran out of memory trying to grow the priority queue and had to
     bury the job.
+
+    This can be raised in response to a release command.
     """
 
-    def __init__(self, values: List[bytes] = None) -> None:
-        if values:
-            self.id: Optional[int] = int(values[0])
-        else:
-            self.id = None
+
+class BuriedWithJobIDError(BeanstalkdError):
+    """The server ran out of memory trying to grow the priority queue and had to
+    bury the job.
+
+    This can be raised in response to a put command.
+    """
+
+    def __init__(self, job_id: int) -> None:
+        #: A server-generated unique identifier that was assigned to the buried job.
+        self.job_id: int = job_id
 
 
 class DeadlineSoonError(BeanstalkdError):
@@ -105,22 +118,6 @@ class TimedOutError(BeanstalkdError):
 
 class UnknownCommandError(BeanstalkdError):
     """The client sent a command that the server does not understand."""
-
-
-ERROR_RESPONSES = {
-    b'BAD_FORMAT':      BadFormatError,
-    b'BURIED':          BuriedError,
-    b'DEADLINE_SOON':   DeadlineSoonError,
-    b'DRAINING':        DrainingError,
-    b'EXPECTED_CRLF':   ExpectedCrlfError,
-    b'INTERNAL_ERROR':  InternalError,
-    b'JOB_TOO_BIG':     JobTooBigError,
-    b'NOT_FOUND':       NotFoundError,
-    b'NOT_IGNORED':     NotIgnoredError,
-    b'OUT_OF_MEMORY':   OutOfMemoryError,
-    b'TIMED_OUT':       TimedOutError,
-    b'UNKNOWN_COMMAND': UnknownCommandError,
-}
 
 
 class Client:
@@ -399,8 +396,35 @@ def _parse_response(line: bytes, expected: bytes) -> List[bytes]:
     if status == expected:
         return values
 
-    if status in ERROR_RESPONSES:
-        raise ERROR_RESPONSES[status](values)
+    if status == b'NOT_FOUND':
+        raise NotFoundError
+    if status == b'TIMED_OUT':
+        raise TimedOutError
+    if status == b'DEADLINE_SOON':
+        raise DeadlineSoonError
+    if status == b'NOT_IGNORED':
+        raise NotIgnoredError
+    if status == b'DRAINING':
+        raise DrainingError
+    if status == b'JOB_TOO_BIG':
+        raise JobTooBigError
+    if status == b'OUT_OF_MEMORY':
+        raise OutOfMemoryError
+    if status == b'INTERNAL_ERROR':
+        raise InternalError
+    if status == b'BAD_FORMAT':
+        raise BadFormatError
+    if status == b'EXPECTED_CRLF':
+        raise ExpectedCrlfError
+    if status == b'UNKNOWN_COMMAND':
+        raise UnknownCommandError
+
+    if status == b'BURIED':
+        values_len = len(values)
+        if values_len == 0:
+            raise BuriedError
+        if values_len == 1:
+            raise BuriedWithJobIDError(int(values[0]))
 
     raise UnknownResponseError(status, values)
 

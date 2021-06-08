@@ -8,17 +8,35 @@ API Reference
     :members:
 
 .. autoclass:: greenstalk.Error
-.. autoclass:: greenstalk.UnknownResponseError
+
 .. autoclass:: greenstalk.BeanstalkdError
-.. autoclass:: greenstalk.BadFormatError
-.. autoclass:: greenstalk.BuriedError
-.. autoclass:: greenstalk.DeadlineSoonError
-.. autoclass:: greenstalk.DrainingError
-.. autoclass:: greenstalk.ExpectedCrlfError
-.. autoclass:: greenstalk.InternalError
-.. autoclass:: greenstalk.JobTooBigError
+
 .. autoclass:: greenstalk.NotFoundError
-.. autoclass:: greenstalk.NotIgnoredError
-.. autoclass:: greenstalk.OutOfMemoryError
+
 .. autoclass:: greenstalk.TimedOutError
+
+.. autoclass:: greenstalk.DeadlineSoonError
+
+.. autoclass:: greenstalk.NotIgnoredError
+
+.. autoclass:: greenstalk.BuriedError
+
+.. autoclass:: greenstalk.BuriedWithJobIDError
+    :members:
+
+.. autoclass:: greenstalk.DrainingError
+
+.. autoclass:: greenstalk.JobTooBigError
+
+.. autoclass:: greenstalk.OutOfMemoryError
+
+.. autoclass:: greenstalk.InternalError
+
+.. autoclass:: greenstalk.BadFormatError
+
+.. autoclass:: greenstalk.ExpectedCrlfError
+
 .. autoclass:: greenstalk.UnknownCommandError
+
+.. autoclass:: greenstalk.UnknownResponseError
+    :members:

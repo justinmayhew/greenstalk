@@ -8,8 +8,8 @@ from typing import Any, Callable, Iterator
 import pytest
 
 from greenstalk import (
-    DEFAULT_PRIORITY, DEFAULT_TTR, Address, BuriedError, Client,
-    DeadlineSoonError, JobTooBigError, NotFoundError, NotIgnoredError,
+    DEFAULT_PRIORITY, DEFAULT_TTR, Address, BuriedError, BuriedWithJobIDError,
+    Client, DeadlineSoonError, JobTooBigError, NotFoundError, NotIgnoredError,
     TimedOutError, UnknownResponseError, _parse_chunk, _parse_response
 )
 
@@ -382,15 +382,14 @@ def test_not_ignored(c: Client) -> None:
 
 
 def test_buried_error_with_id() -> None:
-    with pytest.raises(BuriedError) as e:
+    with pytest.raises(BuriedWithJobIDError) as e:
         _parse_response(b'BURIED 10\r\n', b'')
-    assert e.value.id == 10
+    assert e.value.job_id == 10
 
 
 def test_buried_error_without_id() -> None:
-    with pytest.raises(BuriedError) as e:
+    with pytest.raises(BuriedError):
         _parse_response(b'BURIED\r\n', b'')
-    assert e.value.id is None
 
 
 def test_unknown_response_error() -> None:
