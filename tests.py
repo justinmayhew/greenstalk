@@ -1,25 +1,35 @@
+# pyright: strict, reportPrivateUsage=false
 import os
 import subprocess
 import time
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from typing import Any, Callable, Iterator
+from typing import Callable, Iterable, Iterator, Union
 
 import pytest
 
 from greenstalk import (
-    DEFAULT_PRIORITY, DEFAULT_TTR, Address, BuriedError, BuriedWithJobIDError,
-    Client, DeadlineSoonError, JobTooBigError, NotFoundError, NotIgnoredError,
-    TimedOutError, UnknownResponseError, _parse_chunk, _parse_response
+    DEFAULT_PRIORITY, DEFAULT_TTR, DEFAULT_TUBE, Address, BuriedError,
+    BuriedWithJobIDError, Client, DeadlineSoonError, JobTooBigError,
+    NotFoundError, NotIgnoredError, TimedOutError, UnknownResponseError,
+    _parse_chunk, _parse_response
 )
 
 BEANSTALKD_PATH = os.getenv('BEANSTALKD_PATH', 'beanstalkd')
 DEFAULT_INET_ADDRESS = ('127.0.0.1', 4444)
 DEFAULT_UNIX_ADDRESS = '/tmp/greenstalk-test.sock'
 
+TestFunc = Callable[[Client], None]
+WrapperFunc = Callable[[], None]
+DecoratorFunc = Callable[[TestFunc], WrapperFunc]
 
-def with_beanstalkd(address: Address = DEFAULT_INET_ADDRESS, **kwargs: Any) -> Callable:
-    def decorator(test: Callable) -> Callable:
+
+def with_beanstalkd(
+    address: Address = DEFAULT_INET_ADDRESS,
+    use: str = DEFAULT_TUBE,
+    watch: Union[str, Iterable[str]] = DEFAULT_TUBE,
+) -> DecoratorFunc:
+    def decorator(test: TestFunc) -> WrapperFunc:
         def wrapper() -> None:
             cmd = [BEANSTALKD_PATH]
             if isinstance(address, str):
@@ -30,7 +40,7 @@ def with_beanstalkd(address: Address = DEFAULT_INET_ADDRESS, **kwargs: Any) -> C
             with subprocess.Popen(cmd) as beanstalkd:
                 time.sleep(0.1)
                 try:
-                    with Client(address, **kwargs) as c:
+                    with Client(address, use=use, watch=watch) as c:
                         test(c)
                 finally:
                     beanstalkd.terminate()
