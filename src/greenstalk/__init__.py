@@ -23,6 +23,9 @@ class Job:
         #: Producers and consumers need to agree on how these bytes are interpreted.
         self.body: bytes = body
 
+    def __repr__(self) -> str:
+        return f"greenstalk.Job(id={self.id!r}, body={self.body!r})"
+
 
 JobOrID = Union[Job, int]
 
@@ -142,6 +145,7 @@ class Client:
             self._sock = socket.create_connection(address)
 
         self._reader = self._sock.makefile("rb")
+        self._address = address
 
         if use != DEFAULT_TUBE:
             self.use(use)
@@ -383,6 +387,13 @@ class Client:
         :param delay: The number of seconds to pause the tube for.
         """
         self._send_cmd(b"pause-tube %b %d" % (tube.encode("ascii"), delay), b"PAUSED")
+
+    def __repr__(self) -> str:
+        if isinstance(self._address, str):
+            return f"greenstalk.Client(socket={self._address!r})"
+
+        host, port = self._address
+        return f"greenstalk.Client(host={host!r}, port={port!r})"
 
 
 def _to_id(j: JobOrID) -> int:

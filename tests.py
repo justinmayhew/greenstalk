@@ -1,4 +1,5 @@
 # pyright: strict, reportPrivateUsage=false
+import json
 import os
 import signal
 import subprocess
@@ -19,6 +20,7 @@ from greenstalk import (
     Client,
     DeadlineSoonError,
     DrainingError,
+    Job,
     JobTooBigError,
     NotFoundError,
     NotIgnoredError,
@@ -421,6 +423,23 @@ def test_drain_mode() -> None:
                 assert c.stats()["draining"] == "true"
         finally:
             beanstalkd.terminate()
+
+
+@with_beanstalkd(DEFAULT_INET_ADDRESS)
+def test_client_repr_inet(c: Client) -> None:
+    host, port = DEFAULT_INET_ADDRESS
+    assert repr(c) == f"greenstalk.Client(host='{host}', port={port})"
+
+
+@with_beanstalkd(DEFAULT_UNIX_ADDRESS)
+def test_client_repr_unix(c: Client) -> None:
+    assert repr(c) == f"greenstalk.Client(socket='{DEFAULT_UNIX_ADDRESS}')"
+
+
+def test_job_repr() -> None:
+    body = json.dumps({"user_id": 123}).encode("utf-8")
+    job = Job(id=456, body=body)
+    assert repr(job) == """greenstalk.Job(id=456, body=b'{"user_id": 123}')"""
 
 
 def test_buried_error_with_id() -> None:
