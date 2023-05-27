@@ -467,7 +467,7 @@ def _parse_stats(buf: bytes) -> Stats:
         try:
             v: Union[int, str] = int(value)
         except ValueError:
-            v = value
+            v = _maybe_strip_quotes(value)
         stats[key] = v
 
     return stats
@@ -485,3 +485,9 @@ def _parse_list(buf: bytes) -> List[str]:
         values.append(line[2:])
 
     return values
+
+
+def _maybe_strip_quotes(s: str) -> str:
+    if len(s) >= 2 and s[0] == '"' and s[-1] == '"':
+        return s[1:-1]
+    return s
