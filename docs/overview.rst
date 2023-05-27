@@ -35,7 +35,7 @@ only required argument:
 
 .. code-block:: pycon3
 
-    >>> client.put(b'hello')
+    >>> client.put('hello')
     1
 
 Jobs are inserted into the currently used tube, which defaults to ``default``.
@@ -55,7 +55,7 @@ until a job is reserved (unless the ``timeout`` argument is used):
     >>> job.id
     1
     >>> job.body
-    b'hello'
+    'hello'
 
 Jobs will only be reserved from tubes on the watch list, which initially
 contains a single tube, ``default``. You can add tubes to the watch list with
@@ -85,8 +85,8 @@ Here's what you can do with a reserved job to change its state:
 |             |                  | inspection                                  |
 +-------------+------------------+---------------------------------------------+
 
-Body Serialization and Encoding
--------------------------------
+Body Serialization
+------------------
 
 The server does not inspect the contents of job bodies, it's only concerned with
 routing them between clients. This gives clients full control over how they're
@@ -102,7 +102,7 @@ Producer:
 .. code-block:: python3
 
     payload = {'user_id': user_id}
-    body = json.dumps(payload).encode('utf-8')
+    body = json.dumps(payload)
     client.put(body)
 
 The consumer would then do the inverse:
@@ -110,8 +110,19 @@ The consumer would then do the inverse:
 .. code-block:: python3
 
     job = client.reserve()
-    payload = json.loads(job.body.decode('utf-8'))
+    payload = json.loads(job.body)
     send_registration_email(payload['user_id'])
+
+Body Encoding
+-------------
+
+When creating a :class:`Client <greenstalk.Client>`, you can use the
+``encoding`` argument to control how job bodies are encoded and decoded. It
+defaults to UTF-8.
+
+You can set the ``encoding`` to ``None`` if you're working with binary data. In
+that case, you're expected to pass in ``bytes`` (rather than ``str``) bodies,
+and ``bytes`` bodies will be returned.
 
 Job Priorities
 --------------

@@ -34,8 +34,6 @@ unreachable unless there's a bug in this library.
 .. autoclass:: greenstalk.NotIgnoredError
 
 .. autoclass:: greenstalk.BuriedError
-
-.. autoclass:: greenstalk.BuriedWithJobIDError
     :members:
 
 .. autoclass:: greenstalk.DrainingError

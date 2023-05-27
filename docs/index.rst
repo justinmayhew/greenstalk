@@ -11,7 +11,7 @@ Greenstalk is a Python client library for communicating with the `beanstalkd
     import greenstalk
 
     with greenstalk.Client(('127.0.0.1', 11300)) as client:
-        client.put('hello'.encode('utf-8'))
+        client.put('hello')
 
 - **Consumers**, processes that take jobs from a queue and execute some work:
 
@@ -22,7 +22,7 @@ Greenstalk is a Python client library for communicating with the `beanstalkd
     with greenstalk.Client(('127.0.0.1', 11300)) as client:
         while True:
             job = client.reserve()
-            print(job.body.decode('utf-8'))
+            print(job.body)
             client.delete(job)
 
 This library is a thin wrapper over the wire protocol. The documentation doesn't

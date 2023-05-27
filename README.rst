@@ -18,13 +18,13 @@ Quickstart
 
     >>> import greenstalk
     >>> client = greenstalk.Client(('127.0.0.1', 11300))
-    >>> client.put(b'hello')
+    >>> client.put('hello')
     1
     >>> job = client.reserve()
     >>> job.id
     1
     >>> job.body
-    b'hello'
+    'hello'
     >>> client.delete(job)
     >>> client.close()
 

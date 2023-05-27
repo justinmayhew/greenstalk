@@ -4,6 +4,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 __version__ = "2.0.0"
 
 Address = Union[Tuple[str, int], str]
+Body = Union[bytes, str]
 Stats = Dict[str, Union[str, int]]
 
 DEFAULT_TUBE = "default"
@@ -15,13 +16,13 @@ DEFAULT_TTR = 60
 class Job:
     """A job returned from the server."""
 
-    def __init__(self, id: int, body: bytes) -> None:
+    def __init__(self, id: int, body: Body) -> None:
         #: A server-generated unique identifier assigned to the job on creation.
         self.id: int = id
 
         #: The content of the job. Also referred to as the message or payload.
         #: Producers and consumers need to agree on how these bytes are interpreted.
-        self.body: bytes = body
+        self.body: Body = body
 
     def __repr__(self) -> str:
         return f"greenstalk.Job(id={self.id!r}, body={self.body!r})"
@@ -61,20 +62,15 @@ class BuriedError(BeanstalkdError):
     """The server ran out of memory trying to grow the priority queue and had to
     bury the job.
 
-    This can be raised in response to a release command.
+    This can be raised in response to a put or release command.
     """
 
-
-class BuriedWithJobIDError(BeanstalkdError):
-    """The server ran out of memory trying to grow the priority queue and had to
-    bury the job.
-
-    This can be raised in response to a put command.
-    """
-
-    def __init__(self, job_id: int) -> None:
-        #: A server-generated unique identifier that was assigned to the buried job.
-        self.job_id: int = job_id
+    def __init__(self, values: Optional[List[bytes]] = None) -> None:
+        if values:
+            #: A server-generated unique identifier that was assigned to the buried job.
+            self.id: Optional[int] = int(values[0])
+        else:
+            self.id = None
 
 
 class DeadlineSoonError(BeanstalkdError):
@@ -122,11 +118,28 @@ class UnknownCommandError(BeanstalkdError):
     """The client sent a command that the server does not understand."""
 
 
+ERROR_RESPONSES = {
+    b"BAD_FORMAT": BadFormatError,
+    b"BURIED": BuriedError,
+    b"DEADLINE_SOON": DeadlineSoonError,
+    b"DRAINING": DrainingError,
+    b"EXPECTED_CRLF": ExpectedCrlfError,
+    b"INTERNAL_ERROR": InternalError,
+    b"JOB_TOO_BIG": JobTooBigError,
+    b"NOT_FOUND": NotFoundError,
+    b"NOT_IGNORED": NotIgnoredError,
+    b"OUT_OF_MEMORY": OutOfMemoryError,
+    b"TIMED_OUT": TimedOutError,
+    b"UNKNOWN_COMMAND": UnknownCommandError,
+}
+
+
 class Client:
     """A client implementing the beanstalk protocol. Upon creation a connection
     with beanstalkd is established and tubes are initialized.
 
     :param address: A socket address pair (host, port) or a Unix domain socket path.
+    :param encoding: The encoding used to encode and decode job bodies.
     :param use: The tube to use after connecting.
     :param watch: The tubes to watch after connecting. The ``default`` tube will
                   be ignored if it's not included.
@@ -135,6 +148,7 @@ class Client:
     def __init__(
         self,
         address: Address,
+        encoding: Optional[str] = "utf-8",
         use: str = DEFAULT_TUBE,
         watch: Union[str, Iterable[str]] = DEFAULT_TUBE,
     ) -> None:
@@ -146,6 +160,7 @@ class Client:
 
         self._reader = self._sock.makefile("rb")
         self._address = address
+        self.encoding = encoding
 
         if use != DEFAULT_TUBE:
             self.use(use)
@@ -187,7 +202,11 @@ class Client:
 
     def _job_cmd(self, cmd: bytes, expected: bytes) -> Job:
         id, size = (int(n) for n in self._send_cmd(cmd, expected))
-        body = self._read_chunk(size)
+        chunk = self._read_chunk(size)
+        if self.encoding is None:
+            body: Body = chunk
+        else:
+            body = chunk.decode(self.encoding)
         return Job(id, body)
 
     def _peek_cmd(self, cmd: bytes) -> Job:
@@ -205,7 +224,7 @@ class Client:
 
     def put(
         self,
-        body: bytes,
+        body: Body,
         priority: int = DEFAULT_PRIORITY,
         delay: int = DEFAULT_DELAY,
         ttr: int = DEFAULT_TTR,
@@ -219,6 +238,10 @@ class Client:
         :param ttr: The maximum number of seconds the job can be reserved for
                     before timing out.
         """
+        if isinstance(body, str):
+            if self.encoding is None:
+                raise TypeError("Unable to encode string with no encoding set")
+            body = body.encode(self.encoding)
         cmd = b"put %d %d %d %d\r\n%b" % (priority, delay, ttr, len(body), body)
         return self._int_cmd(cmd, b"INSERTED")
 
@@ -412,35 +435,8 @@ def _parse_response(line: bytes, expected: bytes) -> List[bytes]:
     if status == expected:
         return values
 
-    if status == b"NOT_FOUND":
-        raise NotFoundError
-    if status == b"TIMED_OUT":
-        raise TimedOutError
-    if status == b"DEADLINE_SOON":
-        raise DeadlineSoonError
-    if status == b"NOT_IGNORED":
-        raise NotIgnoredError
-    if status == b"DRAINING":
-        raise DrainingError
-    if status == b"JOB_TOO_BIG":
-        raise JobTooBigError
-    if status == b"OUT_OF_MEMORY":
-        raise OutOfMemoryError
-    if status == b"INTERNAL_ERROR":
-        raise InternalError
-    if status == b"BAD_FORMAT":
-        raise BadFormatError
-    if status == b"EXPECTED_CRLF":
-        raise ExpectedCrlfError
-    if status == b"UNKNOWN_COMMAND":
-        raise UnknownCommandError
-
-    if status == b"BURIED":
-        values_len = len(values)
-        if values_len == 0:
-            raise BuriedError
-        if values_len == 1:
-            raise BuriedWithJobIDError(int(values[0]))
+    if status in ERROR_RESPONSES:
+        raise ERROR_RESPONSES[status](values)
 
     raise UnknownResponseError(status, values)
 
