@@ -385,7 +385,7 @@ def test_pause_tube(c: Client) -> None:
 @with_beanstalkd(use="default")
 def test_max_job_size(c: Client) -> None:
     with pytest.raises(JobTooBigError):
-        c.put(bytes(2 ** 16))
+        c.put(bytes(2**16))
 
 
 @with_beanstalkd()

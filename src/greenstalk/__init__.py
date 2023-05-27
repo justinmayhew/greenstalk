@@ -7,7 +7,7 @@ Address = Union[Tuple[str, int], str]
 Stats = Dict[str, Union[str, int]]
 
 DEFAULT_TUBE = "default"
-DEFAULT_PRIORITY = 2 ** 16
+DEFAULT_PRIORITY = 2**16
 DEFAULT_DELAY = 0
 DEFAULT_TTR = 60
 
