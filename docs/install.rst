@@ -1,7 +1,7 @@
 Installation
 ============
 
-Greenstalk supports Python 3.6 and later. To install it:
+Greenstalk is available on `PyPI`_:
 
 .. code-block:: bash
 
@@ -18,3 +18,5 @@ For macOS with Homebrew:
 .. code-block:: bash
 
     brew install beanstalkd
+
+.. _PyPI: https://pypi.org/project/greenstalk/
