@@ -1,9 +1,9 @@
 .PHONY: test
-test:
+test: dev_deps
 	PYTHONWARNINGS=default pytest tests.py
 
 .PHONY: test-with-coverage
-test-with-coverage:
+test-with-coverage: dev_deps
 	PYTHONWARNINGS=default pytest --cov=greenstalk tests.py
 
 .PHONY: lint
@@ -21,3 +21,6 @@ html-docs:
 .PHONY: clean
 clean:
 	rm -rf .cache/ .coverage *.egg-info/ __pycache__/ **/*/__pycache__/ .tox/ .mypy_cache/ docs/_build/ .pytest_cache/ build/
+
+dev_deps:
+	pip install -r requirements-dev.txt%  
