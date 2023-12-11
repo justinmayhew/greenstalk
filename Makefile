@@ -3,7 +3,7 @@ test: dev_deps
 	PYTHONWARNINGS=default pytest tests.py
 
 .PHONY: test-with-coverage
-test-with-coverage:
+test-with-coverage: dev_deps
 	PYTHONWARNINGS=default pytest --cov=greenstalk tests.py
 
 .PHONY: lint
