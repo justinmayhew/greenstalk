@@ -1,28 +1,145 @@
 import socket
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+    Generic,
+    TypeVar,
+    overload,
+)
+import sys
 
 __version__ = "2.0.2"
 
 Address = Union[Tuple[str, int], str]
-Body = Union[bytes, str]
-Stats = Dict[str, Union[str, int]]
+
+if sys.version_info < (3, 8):
+    Stats = Dict[str, Union[str, int]]
+    StatsJob = Dict[str, Union[str, int]]
+    StatsTube = Dict[str, Union[str, int]]
+else:
+    from typing import TypedDict, Literal
+
+    Stats = TypedDict(
+        "Stats",
+        {
+            "current-jobs-urgent": int,
+            "current-jobs-ready": int,
+            "current-jobs-reserved": int,
+            "current-jobs-delayed": int,
+            "current-jobs-buried": int,
+            "cmd-put": int,
+            "cmd-peek": int,
+            "cmd-peek-ready": int,
+            "cmd-peek-delayed": int,
+            "cmd-peek-buried": int,
+            "cmd-reserve": int,
+            "cmd-reserve-with-timeout": int,
+            "cmd-touch": int,
+            "cmd-use": int,
+            "cmd-watch": int,
+            "cmd-ignore": int,
+            "cmd-delete": int,
+            "cmd-rebase": int,
+            "cmd-burry": int,
+            "cmd-kick": int,
+            "cmd-stats": int,
+            "cmd-stats-job": int,
+            "cmd-stats-tube": int,
+            "cmd-list-tubes": int,
+            "cmd-list-tube-used": int,
+            "cmd-list-tubes-watched": int,
+            "cmd-pause-tube": int,
+            "job-timeouts": int,
+            "total-jobs": int,
+            "max-job-size": int,
+            "current-tubes": int,
+            "current-connections": int,
+            "current-producers": int,
+            "current-workers": int,
+            "current-waiting": int,
+            "total-connecitons": int,
+            "pid": int,
+            "version": str,
+            "rusage-utime": str,
+            "rusage-stime": str,
+            "uptime": int,
+            "binlog-oldest-index": int,
+            "binlog-current-index": int,
+            "binlog-max-size": int,
+            "binlog-records-written": int,
+            "binlog-records-migrated": int,
+            "draining": Literal["true", "false"],
+            "id": str,
+            "hostname": str,
+            "os": str,
+            "platform": str,
+        },
+    )
+
+    StatsJob = TypedDict(
+        "StatsJob",
+        {
+            "id": int,
+            "tube": str,
+            "state": Literal["ready", "delayed", "reserved", "buried"],
+            "pri": int,
+            "age": int,
+            "delay": int,
+            "ttr": int,
+            "time-left": int,
+            "file": int,
+            "reserves": int,
+            "timeouts": int,
+            "releases": int,
+            "buries": int,
+            "kicks": int,
+        },
+    )
+
+    StatsTube = TypedDict(
+        "StatsTube",
+        {
+            "name": str,
+            "current-jobs-urgent": int,
+            "current-jobs-ready": int,
+            "current-jobs-reserved": int,
+            "current-jobs-delayed": int,
+            "current-jobs-buried": int,
+            "total-jobs": int,
+            "current-using": int,
+            "current-waiting": int,
+            "current-watching": int,
+            "pause": int,
+            "cmd-delete": int,
+            "cmd-pause-tube": int,
+            "pause-time-left": int,
+        },
+    )
 
 DEFAULT_TUBE = "default"
 DEFAULT_PRIORITY = 2**16
 DEFAULT_DELAY = 0
 DEFAULT_TTR = 60
 
+TBody = TypeVar("TBody", str, bytes)
 
-class Job:
+
+class Job(Generic[TBody]):
     """A job returned from the server."""
 
-    def __init__(self, id: int, body: Body) -> None:
+    def __init__(self, id: int, body: TBody) -> None:
         #: A server-generated unique identifier assigned to the job on creation.
         self.id: int = id
 
         #: The content of the job. Also referred to as the message or payload.
         #: Producers and consumers need to agree on how these bytes are interpreted.
-        self.body: Body = body
+        self.body: TBody = body
 
     def __repr__(self) -> str:
         return f"greenstalk.Job(id={self.id!r}, body={self.body!r})"
@@ -134,7 +251,7 @@ ERROR_RESPONSES = {
 }
 
 
-class Client:
+class Client(Generic[TBody]):
     """A client implementing the beanstalk protocol. Upon creation a connection
     with beanstalkd is established and tubes are initialized.
 
@@ -144,6 +261,24 @@ class Client:
     :param watch: The tubes to watch after connecting. The ``default`` tube will
                   be ignored if it's not included.
     """
+
+    @overload
+    def __init__(
+        self: "Client[bytes]",
+        address: Address,
+        encoding: None,
+        use: str = DEFAULT_TUBE,
+        watch: Union[str, Iterable[str]] = DEFAULT_TUBE,
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self: "Client[str]",
+        address: Address,
+        encoding: str = "utf-8",
+        use: str = DEFAULT_TUBE,
+        watch: Union[str, Iterable[str]] = DEFAULT_TUBE,
+    ) -> None: ...
 
     def __init__(
         self,
@@ -200,19 +335,19 @@ class Client:
         (n,) = self._send_cmd(cmd, expected)
         return int(n)
 
-    def _job_cmd(self, cmd: bytes, expected: bytes) -> Job:
+    def _job_cmd(self, cmd: bytes, expected: bytes) -> Job[TBody]:
         id, size = (int(n) for n in self._send_cmd(cmd, expected))
         chunk = self._read_chunk(size)
         if self.encoding is None:
-            body: Body = chunk
+            body: bytes = chunk
         else:
-            body = chunk.decode(self.encoding)
-        return Job(id, body)
+            body = chunk.decode(self.encoding)  # type: ignore
+        return cast(Job[TBody], Job(id, body))
 
-    def _peek_cmd(self, cmd: bytes) -> Job:
+    def _peek_cmd(self, cmd: bytes) -> Job[TBody]:
         return self._job_cmd(cmd, b"FOUND")
 
-    def _stats_cmd(self, cmd: bytes) -> Stats:
+    def _stats_cmd(self, cmd: bytes) -> Union[Stats, StatsJob, StatsTube]:
         size = self._int_cmd(cmd, b"OK")
         chunk = self._read_chunk(size)
         return _parse_stats(chunk)
@@ -224,7 +359,7 @@ class Client:
 
     def put(
         self,
-        body: Body,
+        body: Union[TBody, bytes],
         priority: int = DEFAULT_PRIORITY,
         delay: int = DEFAULT_DELAY,
         ttr: int = DEFAULT_TTR,
@@ -252,7 +387,7 @@ class Client:
         """
         self._send_cmd(b"use %b" % tube.encode("ascii"), b"USING")
 
-    def reserve(self, timeout: Optional[int] = None) -> Job:
+    def reserve(self, timeout: Optional[int] = None) -> Job[TBody]:
         """Reserves a job from a tube on the watch list, giving this client
         exclusive access to it for the TTR. Returns the reserved job.
 
@@ -333,22 +468,22 @@ class Client:
         """
         return self._int_cmd(b"ignore %b" % tube.encode("ascii"), b"WATCHING")
 
-    def peek(self, id: int) -> Job:
+    def peek(self, id: int) -> Job[TBody]:
         """Returns a job by ID.
 
         :param id: The ID of the job to peek.
         """
         return self._peek_cmd(b"peek %d" % id)
 
-    def peek_ready(self) -> Job:
+    def peek_ready(self) -> Job[TBody]:
         """Returns the next ready job in the currently used tube."""
         return self._peek_cmd(b"peek-ready")
 
-    def peek_delayed(self) -> Job:
+    def peek_delayed(self) -> Job[TBody]:
         """Returns the next available delayed job in the currently used tube."""
         return self._peek_cmd(b"peek-delayed")
 
-    def peek_buried(self) -> Job:
+    def peek_buried(self) -> Job[TBody]:
         """Returns the oldest buried job in the currently used tube."""
         return self._peek_cmd(b"peek-buried")
 
@@ -372,23 +507,23 @@ class Client:
         """
         self._send_cmd(b"kick-job %d" % _to_id(job), b"KICKED")
 
-    def stats_job(self, job: JobOrID) -> Stats:
+    def stats_job(self, job: JobOrID) -> StatsJob:
         """Returns job statistics.
 
         :param job: The job or job ID to return statistics for.
         """
-        return self._stats_cmd(b"stats-job %d" % _to_id(job))
+        return cast(StatsJob, self._stats_cmd(b"stats-job %d" % _to_id(job)))
 
-    def stats_tube(self, tube: str) -> Stats:
+    def stats_tube(self, tube: str) -> StatsTube:
         """Returns tube statistics.
 
         :param tube: The tube to return statistics for.
         """
-        return self._stats_cmd(b"stats-tube %b" % tube.encode("ascii"))
+        return cast(StatsTube, self._stats_cmd(b"stats-tube %b" % tube.encode("ascii")))
 
     def stats(self) -> Stats:
         """Returns system statistics."""
-        return self._stats_cmd(b"stats")
+        return cast(Stats, self._stats_cmd(b"stats"))
 
     def tubes(self) -> List[str]:
         """Returns a list of all existing tubes."""
@@ -451,13 +586,13 @@ def _parse_chunk(data: bytes, size: int) -> bytes:
     return data
 
 
-def _parse_stats(buf: bytes) -> Stats:
+def _parse_stats(buf: bytes) -> Union[Stats, StatsJob, StatsTube]:
     data = buf.decode("ascii")
 
     assert data[:4] == "---\n"
     data = data[4:]  # strip YAML head
 
-    stats: Stats = {}
+    stats: Union[Stats, StatsJob, StatsTube] = {}  # type: ignore
     for line in data.splitlines():
         key, value = line.split(": ", 1)
         try:
