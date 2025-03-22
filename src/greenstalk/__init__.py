@@ -45,8 +45,8 @@ else:
             "cmd-watch": int,
             "cmd-ignore": int,
             "cmd-delete": int,
-            "cmd-rebase": int,
-            "cmd-burry": int,
+            "cmd-release": int,
+            "cmd-bury": int,
             "cmd-kick": int,
             "cmd-stats": int,
             "cmd-stats-job": int,
@@ -63,7 +63,7 @@ else:
             "current-producers": int,
             "current-workers": int,
             "current-waiting": int,
-            "total-connecitons": int,
+            "total-connections": int,
             "pid": int,
             "version": str,
             "rusage-utime": str,
@@ -145,7 +145,7 @@ class Job(Generic[TBody]):
         return f"greenstalk.Job(id={self.id!r}, body={self.body!r})"
 
 
-JobOrID = Union[Job, int]
+JobOrID = Union[Job[TBody], int]
 
 
 class Error(Exception):
@@ -310,7 +310,7 @@ class Client(Generic[TBody]):
             if DEFAULT_TUBE not in watch:
                 self.ignore(DEFAULT_TUBE)
 
-    def __enter__(self) -> "Client":
+    def __enter__(self) -> "Client[TBody]":
         return self
 
     def __exit__(self, *args: Any) -> None:
@@ -403,7 +403,7 @@ class Client(Generic[TBody]):
             cmd = b"reserve-with-timeout %d" % timeout
         return self._job_cmd(cmd, b"RESERVED")
 
-    def reserve_job(self, id: int) -> Job:
+    def reserve_job(self, id: int) -> Job[TBody]:
         """Reserves a job by ID, giving this client exclusive access to it for
         the TTR. Returns the reserved job.
 
@@ -414,7 +414,7 @@ class Client(Generic[TBody]):
         """
         return self._job_cmd(b"reserve-job %d" % id, b"RESERVED")
 
-    def delete(self, job: JobOrID) -> None:
+    def delete(self, job: JobOrID[TBody]) -> None:
         """Deletes a job.
 
         :param job: The job or job ID to delete.
@@ -423,7 +423,7 @@ class Client(Generic[TBody]):
 
     def release(
         self,
-        job: Job,
+        job: Job[TBody],
         priority: int = DEFAULT_PRIORITY,
         delay: int = DEFAULT_DELAY,
     ) -> None:
@@ -436,7 +436,7 @@ class Client(Generic[TBody]):
         """
         self._send_cmd(b"release %d %d %d" % (job.id, priority, delay), b"RELEASED")
 
-    def bury(self, job: Job, priority: int = DEFAULT_PRIORITY) -> None:
+    def bury(self, job: Job[TBody], priority: int = DEFAULT_PRIORITY) -> None:
         """Buries a reserved job.
 
         :param job: The job to bury.
@@ -445,7 +445,7 @@ class Client(Generic[TBody]):
         """
         self._send_cmd(b"bury %d %d" % (job.id, priority), b"BURIED")
 
-    def touch(self, job: Job) -> None:
+    def touch(self, job: Job[TBody]) -> None:
         """Refreshes the TTR of a reserved job.
 
         :param job: The job to touch.
@@ -500,14 +500,14 @@ class Client(Generic[TBody]):
         """
         return self._int_cmd(b"kick %d" % bound, b"KICKED")
 
-    def kick_job(self, job: JobOrID) -> None:
+    def kick_job(self, job: JobOrID[TBody]) -> None:
         """Moves a delayed or buried job into the ready queue.
 
         :param job: The job or job ID to kick.
         """
         self._send_cmd(b"kick-job %d" % _to_id(job), b"KICKED")
 
-    def stats_job(self, job: JobOrID) -> StatsJob:
+    def stats_job(self, job: JobOrID[TBody]) -> StatsJob:
         """Returns job statistics.
 
         :param job: The job or job ID to return statistics for.
@@ -554,7 +554,7 @@ class Client(Generic[TBody]):
         return f"greenstalk.Client(host={host!r}, port={port!r})"
 
 
-def _to_id(j: JobOrID) -> int:
+def _to_id(j: JobOrID[TBody]) -> int:
     return j.id if isinstance(j, Job) else j
 
 
@@ -599,7 +599,7 @@ def _parse_stats(buf: bytes) -> Union[Stats, StatsJob, StatsTube]:
             v: Union[int, str] = int(value)
         except ValueError:
             v = _maybe_strip_quotes(value)
-        stats[key] = v
+        stats[key] = v  # type: ignore
 
     return stats
 
