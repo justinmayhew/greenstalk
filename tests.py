@@ -84,7 +84,7 @@ def with_beanstalkd(
                 time.sleep(0.1)
                 try:
                     with Client(address, encoding=encoding, use=use, watch=watch) as c:
-                        test(c)
+                        test(c)  # type: ignore
                 finally:
                     beanstalkd.terminate()
 
