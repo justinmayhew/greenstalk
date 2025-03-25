@@ -1,18 +1,18 @@
 import socket
+import sys
 from typing import (
     Any,
     Dict,
+    Generic,
     Iterable,
     List,
     Optional,
     Tuple,
+    TypeVar,
     Union,
     cast,
-    Generic,
-    TypeVar,
     overload,
 )
-import sys
 
 __version__ = "2.0.2"
 
@@ -23,7 +23,7 @@ if sys.version_info < (3, 8):
     StatsJob = Dict[str, Union[str, int]]
     StatsTube = Dict[str, Union[str, int]]
 else:
-    from typing import TypedDict, Literal
+    from typing import Literal, TypedDict
 
     Stats = TypedDict(
         "Stats",

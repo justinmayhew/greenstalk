@@ -22,11 +22,11 @@ from greenstalk import (
     JobTooBigError,
     NotFoundError,
     NotIgnoredError,
+    TBody,
     TimedOutError,
     UnknownResponseError,
     _parse_chunk,
     _parse_response,
-    TBody,
 )
 
 BEANSTALKD_PATH = os.getenv("BEANSTALKD_PATH", "beanstalkd")
