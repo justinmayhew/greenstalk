@@ -5,7 +5,7 @@ import subprocess
 import time
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from typing import Callable, Iterable, Iterator, Optional, Union
+from typing import Callable, Iterable, Iterator, Optional, Union, overload
 
 import pytest
 
@@ -22,6 +22,7 @@ from greenstalk import (
     JobTooBigError,
     NotFoundError,
     NotIgnoredError,
+    TBody,
     TimedOutError,
     UnknownResponseError,
     _parse_chunk,
@@ -32,9 +33,37 @@ BEANSTALKD_PATH = os.getenv("BEANSTALKD_PATH", "beanstalkd")
 DEFAULT_INET_ADDRESS = ("127.0.0.1", 4444)
 DEFAULT_UNIX_ADDRESS = "/tmp/greenstalk-test.sock"
 
-TestFunc = Callable[[Client], None]
+TestFunc = Callable[[Client[TBody]], None]
 WrapperFunc = Callable[[], None]
-DecoratorFunc = Callable[[TestFunc], WrapperFunc]
+DecoratorFunc = Callable[[TestFunc[TBody]], WrapperFunc]
+
+
+@overload
+def with_beanstalkd(
+    address: Address = DEFAULT_INET_ADDRESS,
+    encoding: str = "utf-8",
+    use: str = DEFAULT_TUBE,
+    watch: Union[str, Iterable[str]] = DEFAULT_TUBE,
+) -> DecoratorFunc[str]: ...
+
+
+@overload
+def with_beanstalkd(
+    address: Address,
+    encoding: None,
+    use: str = DEFAULT_TUBE,
+    watch: Union[str, Iterable[str]] = DEFAULT_TUBE,
+) -> DecoratorFunc[bytes]: ...
+
+
+@overload
+def with_beanstalkd(
+    address: Address = DEFAULT_INET_ADDRESS,
+    *,
+    encoding: None,
+    use: str = DEFAULT_TUBE,
+    watch: Union[str, Iterable[str]] = DEFAULT_TUBE,
+) -> DecoratorFunc[bytes]: ...
 
 
 def with_beanstalkd(
@@ -42,8 +71,8 @@ def with_beanstalkd(
     encoding: Optional[str] = "utf-8",
     use: str = DEFAULT_TUBE,
     watch: Union[str, Iterable[str]] = DEFAULT_TUBE,
-) -> DecoratorFunc:
-    def decorator(test: TestFunc) -> WrapperFunc:
+) -> Union[DecoratorFunc[str], DecoratorFunc[bytes]]:
+    def decorator(test: Union[TestFunc[str], TestFunc[bytes]]) -> WrapperFunc:
         def wrapper() -> None:
             cmd = [BEANSTALKD_PATH]
             if isinstance(address, str):
@@ -55,7 +84,7 @@ def with_beanstalkd(
                 time.sleep(0.1)
                 try:
                     with Client(address, encoding=encoding, use=use, watch=watch) as c:
-                        test(c)
+                        test(c)  # type: ignore
                 finally:
                     beanstalkd.terminate()
 
@@ -74,7 +103,7 @@ def assert_seconds(n: int) -> Iterator[None]:
 
 
 @with_beanstalkd(DEFAULT_UNIX_ADDRESS)
-def test_basic_usage(c: Client) -> None:
+def test_basic_usage(c: Client[str]) -> None:
     c.use("emails")
     id = c.put("测试@example.com")
     c.watch("emails")
@@ -86,7 +115,7 @@ def test_basic_usage(c: Client) -> None:
 
 
 @with_beanstalkd(DEFAULT_UNIX_ADDRESS)
-def test_put_priority(c: Client) -> None:
+def test_put_priority(c: Client[str]) -> None:
     c.put("2", priority=2)
     c.put("1", priority=1)
     job = c.reserve()
@@ -96,7 +125,7 @@ def test_put_priority(c: Client) -> None:
 
 
 @with_beanstalkd(DEFAULT_UNIX_ADDRESS)
-def test_delays(c: Client) -> None:
+def test_delays(c: Client[str]) -> None:
     with assert_seconds(1):
         c.put("delayed", delay=1)
         job = c.reserve()
@@ -112,7 +141,7 @@ def test_delays(c: Client) -> None:
 
 
 @with_beanstalkd(DEFAULT_UNIX_ADDRESS)
-def test_ttr(c: Client) -> None:
+def test_ttr(c: Client[str]) -> None:
     c.put("two second ttr", ttr=2)
     with assert_seconds(1):
         job = c.reserve()
@@ -126,14 +155,14 @@ def test_ttr(c: Client) -> None:
 
 
 @with_beanstalkd(DEFAULT_UNIX_ADDRESS)
-def test_reserve_raises_on_timeout(c: Client) -> None:
+def test_reserve_raises_on_timeout(c: Client[str]) -> None:
     with assert_seconds(1):
         with pytest.raises(TimedOutError):
             c.reserve(timeout=1)
 
 
 @with_beanstalkd()
-def test_reserve_job(c: Client) -> None:
+def test_reserve_job(c: Client[str]) -> None:
     id1 = c.put("a")
     id2 = c.put("b")
     j1 = c.reserve_job(id1)
@@ -151,7 +180,7 @@ def test_reserve_job(c: Client) -> None:
 
 
 @with_beanstalkd(use="hosts", watch="hosts")
-def test_initialize_with_tubes(c: Client) -> None:
+def test_initialize_with_tubes(c: Client[str]) -> None:
     c.put("www.example.com")
     job = c.reserve()
     assert job.body == "www.example.com"
@@ -163,12 +192,12 @@ def test_initialize_with_tubes(c: Client) -> None:
 
 
 @with_beanstalkd(watch=["static", "dynamic"])
-def test_initialize_watch_multiple(c: Client) -> None:
+def test_initialize_watch_multiple(c: Client[str]) -> None:
     c.use("static")
-    c.put(b"haskell")
-    c.put(b"rust")
+    c.put("haskell")
+    c.put("rust")
     c.use("dynamic")
-    c.put(b"python")
+    c.put("python")
     job = c.reserve(timeout=0)
     assert job.body == "haskell"
     job = c.reserve(timeout=0)
@@ -178,7 +207,7 @@ def test_initialize_watch_multiple(c: Client) -> None:
 
 
 @with_beanstalkd(encoding=None)
-def test_binary_jobs(c: Client) -> None:
+def test_binary_jobs(c: Client[bytes]) -> None:
     data = os.urandom(4096)
     c.put(data)
     job = c.reserve()
@@ -186,7 +215,7 @@ def test_binary_jobs(c: Client) -> None:
 
 
 @with_beanstalkd()
-def test_peek(c: Client) -> None:
+def test_peek(c: Client[str]) -> None:
     id = c.put("job")
     job = c.peek(id)
     assert job.id == id
@@ -194,13 +223,13 @@ def test_peek(c: Client) -> None:
 
 
 @with_beanstalkd()
-def test_peek_not_found(c: Client) -> None:
+def test_peek_not_found(c: Client[str]) -> None:
     with pytest.raises(NotFoundError):
         c.peek(111)
 
 
 @with_beanstalkd()
-def test_peek_ready(c: Client) -> None:
+def test_peek_ready(c: Client[str]) -> None:
     id = c.put("ready")
     job = c.peek_ready()
     assert job.id == id
@@ -208,14 +237,14 @@ def test_peek_ready(c: Client) -> None:
 
 
 @with_beanstalkd()
-def test_peek_ready_not_found(c: Client) -> None:
+def test_peek_ready_not_found(c: Client[str]) -> None:
     c.put("delayed", delay=10)
     with pytest.raises(NotFoundError):
         c.peek_ready()
 
 
 @with_beanstalkd()
-def test_peek_delayed(c: Client) -> None:
+def test_peek_delayed(c: Client[str]) -> None:
     id = c.put("delayed", delay=10)
     job = c.peek_delayed()
     assert job.id == id
@@ -223,13 +252,13 @@ def test_peek_delayed(c: Client) -> None:
 
 
 @with_beanstalkd()
-def test_peek_delayed_not_found(c: Client) -> None:
+def test_peek_delayed_not_found(c: Client[str]) -> None:
     with pytest.raises(NotFoundError):
         c.peek_delayed()
 
 
 @with_beanstalkd()
-def test_peek_buried(c: Client) -> None:
+def test_peek_buried(c: Client[str]) -> None:
     id = c.put("buried")
     job = c.reserve()
     c.bury(job)
@@ -239,14 +268,14 @@ def test_peek_buried(c: Client) -> None:
 
 
 @with_beanstalkd()
-def test_peek_buried_not_found(c: Client) -> None:
+def test_peek_buried_not_found(c: Client[str]) -> None:
     c.put("a ready job")
     with pytest.raises(NotFoundError):
         c.peek_buried()
 
 
 @with_beanstalkd()
-def test_kick(c: Client) -> None:
+def test_kick(c: Client[str]) -> None:
     c.put("a delayed job", delay=30)
     c.put("another delayed job", delay=45)
     c.put("a ready job")
@@ -257,14 +286,14 @@ def test_kick(c: Client) -> None:
 
 
 @with_beanstalkd()
-def test_kick_job(c: Client) -> None:
+def test_kick_job(c: Client[str]) -> None:
     id = c.put("a delayed job", delay=3600)
     c.kick_job(id)
     c.reserve(timeout=0)
 
 
 @with_beanstalkd()
-def test_stats_job(c: Client) -> None:
+def test_stats_job(c: Client[str]) -> None:
     assert c.stats_job(c.put("job")) == {
         "id": 1,
         "tube": "default",
@@ -284,7 +313,7 @@ def test_stats_job(c: Client) -> None:
 
 
 @with_beanstalkd(use="foo")
-def test_stats_tube(c: Client) -> None:
+def test_stats_tube(c: Client[str]) -> None:
     assert c.stats_tube("default") == {
         "name": "default",
         "current-jobs-urgent": 0,
@@ -304,7 +333,7 @@ def test_stats_tube(c: Client) -> None:
 
 
 @with_beanstalkd()
-def test_stats(c: Client) -> None:
+def test_stats(c: Client[str]) -> None:
     s = c.stats()
     assert s["current-jobs-urgent"] == 0
     assert s["current-jobs-ready"] == 0
@@ -358,7 +387,7 @@ def test_stats(c: Client) -> None:
 
 
 @with_beanstalkd()
-def test_tubes(c: Client) -> None:
+def test_tubes(c: Client[str]) -> None:
     assert c.tubes() == ["default"]
     c.use("a")
     assert set(c.tubes()) == {"default", "a"}
@@ -368,41 +397,41 @@ def test_tubes(c: Client) -> None:
 
 
 @with_beanstalkd()
-def test_using(c: Client) -> None:
+def test_using(c: Client[str]) -> None:
     assert c.using() == "default"
     c.use("another")
     assert c.using() == "another"
 
 
 @with_beanstalkd()
-def test_watching(c: Client) -> None:
+def test_watching(c: Client[str]) -> None:
     assert c.watching() == ["default"]
     c.watch("another")
     assert set(c.watching()) == {"default", "another"}
 
 
 @with_beanstalkd()
-def test_pause_tube(c: Client) -> None:
+def test_pause_tube(c: Client[str]) -> None:
     c.put("")
     with assert_seconds(1):
         c.pause_tube("default", 1)
         c.reserve()
 
 
-@with_beanstalkd(use="default")
-def test_max_job_size(c: Client) -> None:
+@with_beanstalkd(use="default", encoding=None)
+def test_max_job_size(c: Client[bytes]) -> None:
     with pytest.raises(JobTooBigError):
         c.put(bytes(2**16))
 
 
 @with_beanstalkd()
-def test_job_not_found(c: Client) -> None:
+def test_job_not_found(c: Client[str]) -> None:
     with pytest.raises(NotFoundError):
         c.delete(87)
 
 
 @with_beanstalkd()
-def test_delete_job_reserved_by_other(c: Client) -> None:
+def test_delete_job_reserved_by_other(c: Client[str]) -> None:
     c.put("", ttr=1)
     with Client(DEFAULT_INET_ADDRESS) as other:
         job = other.reserve()
@@ -411,7 +440,7 @@ def test_delete_job_reserved_by_other(c: Client) -> None:
 
 
 @with_beanstalkd()
-def test_not_ignored(c: Client) -> None:
+def test_not_ignored(c: Client[str]) -> None:
     with pytest.raises(NotIgnoredError):
         c.ignore("default")
 
@@ -421,7 +450,7 @@ def test_drain_mode() -> None:
     with subprocess.Popen(cmd) as beanstalkd:
         time.sleep(0.1)
         try:
-            with Client(address=DEFAULT_UNIX_ADDRESS) as c:
+            with Client(address=DEFAULT_UNIX_ADDRESS, encoding=None) as c:
                 assert c.put(b"first") == 1
                 beanstalkd.send_signal(signal.SIGUSR1)
                 time.sleep(0.1)
@@ -433,13 +462,13 @@ def test_drain_mode() -> None:
 
 
 @with_beanstalkd(DEFAULT_INET_ADDRESS)
-def test_client_repr_inet(c: Client) -> None:
+def test_client_repr_inet(c: Client[str]) -> None:
     host, port = DEFAULT_INET_ADDRESS
     assert repr(c) == f"greenstalk.Client(host='{host}', port={port})"
 
 
 @with_beanstalkd(DEFAULT_UNIX_ADDRESS)
-def test_client_repr_unix(c: Client) -> None:
+def test_client_repr_unix(c: Client[str]) -> None:
     assert repr(c) == f"greenstalk.Client(socket='{DEFAULT_UNIX_ADDRESS}')"
 
 
