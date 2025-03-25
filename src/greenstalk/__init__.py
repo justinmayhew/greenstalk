@@ -359,7 +359,7 @@ class Client(Generic[TBody]):
 
     def put(
         self,
-        body: Union[TBody, bytes],
+        body: TBody,
         priority: int = DEFAULT_PRIORITY,
         delay: int = DEFAULT_DELAY,
         ttr: int = DEFAULT_TTR,
@@ -376,8 +376,10 @@ class Client(Generic[TBody]):
         if isinstance(body, str):
             if self.encoding is None:
                 raise TypeError("Unable to encode string with no encoding set")
-            body = body.encode(self.encoding)
-        cmd = b"put %d %d %d %d\r\n%b" % (priority, delay, ttr, len(body), body)
+            buf = body.encode(self.encoding)
+        else:
+            buf = body
+        cmd = b"put %d %d %d %d\r\n%b" % (priority, delay, ttr, len(buf), buf)
         return self._int_cmd(cmd, b"INSERTED")
 
     def use(self, tube: str) -> None:

@@ -194,10 +194,10 @@ def test_initialize_with_tubes(c: Client[str]) -> None:
 @with_beanstalkd(watch=["static", "dynamic"])
 def test_initialize_watch_multiple(c: Client[str]) -> None:
     c.use("static")
-    c.put(b"haskell")
-    c.put(b"rust")
+    c.put("haskell")
+    c.put("rust")
     c.use("dynamic")
-    c.put(b"python")
+    c.put("python")
     job = c.reserve(timeout=0)
     assert job.body == "haskell"
     job = c.reserve(timeout=0)
@@ -418,8 +418,8 @@ def test_pause_tube(c: Client[str]) -> None:
         c.reserve()
 
 
-@with_beanstalkd(use="default")
-def test_max_job_size(c: Client[str]) -> None:
+@with_beanstalkd(use="default", encoding=None)
+def test_max_job_size(c: Client[bytes]) -> None:
     with pytest.raises(JobTooBigError):
         c.put(bytes(2**16))
 
@@ -450,7 +450,7 @@ def test_drain_mode() -> None:
     with subprocess.Popen(cmd) as beanstalkd:
         time.sleep(0.1)
         try:
-            with Client(address=DEFAULT_UNIX_ADDRESS) as c:
+            with Client(address=DEFAULT_UNIX_ADDRESS, encoding=None) as c:
                 assert c.put(b"first") == 1
                 beanstalkd.send_signal(signal.SIGUSR1)
                 time.sleep(0.1)
