@@ -7,6 +7,7 @@ commands in the `protocol`_.
 
 .. image:: https://img.shields.io/pypi/v/greenstalk.svg
     :target: https://pypi.org/project/greenstalk/
+    :alt: Greenstalk is available on the Python Package Index
 
 Quickstart
 ----------
