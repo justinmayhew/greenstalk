@@ -1,3 +1,28 @@
+[project]
+name = "greenstalk"
+description = "A Python client for the beanstalkd work queue"
+license = "MIT"
+requires-python = ">=3.8"
+authors = [
+  { name = "Justin Mayhew", email = "mayhew@live.ca" },
+]
+classifiers = [
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+]
+readme = "README.rst"
+dynamic = ["version"]
+
+[project.urls]
+Documentation = "https://greenstalk.readthedocs.io/"
+Source = "https://github.com/justinmayhew/greenstalk"
+
 [build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/greenstalk/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+packages = ["src/greenstalk"]
