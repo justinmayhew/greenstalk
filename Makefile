@@ -8,9 +8,9 @@ test-with-coverage:
 
 .PHONY: lint
 lint:
-	black src/ tests.py
-	isort --profile=black src/ tests.py
-	flake8 src/ tests.py
+	ruff check --select I --fix src/ tests.py
+	ruff format src/ tests.py
+	ruff check src/ tests.py
 	mypy --strict src/ tests.py
 
 .PHONY: html-docs
