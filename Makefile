@@ -1,17 +1,9 @@
-.PHONY: test
-test:
-	PYTHONWARNINGS=default pytest tests.py
-
-.PHONY: test-with-coverage
-test-with-coverage:
-	PYTHONWARNINGS=default pytest --cov=greenstalk tests.py
-
 .PHONY: lint
 lint:
-	ruff check --select I --fix src/ tests.py
-	ruff format src/ tests.py
-	ruff check src/ tests.py
-	mypy --strict src/ tests.py
+	ruff check --select I --fix src/ tests/
+	ruff format src/ tests/
+	ruff check src/ tests/
+	mypy --strict src/ tests/
 
 .PHONY: html-docs
 html-docs:
