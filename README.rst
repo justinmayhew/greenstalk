@@ -1,13 +1,13 @@
 Greenstalk
 ==========
 
+.. image:: https://img.shields.io/pypi/v/greenstalk.svg
+    :target: https://pypi.org/project/greenstalk/
+    :alt: Greenstalk on PyPI
+
 Greenstalk is a small and unopinionated Python client library for communicating
 with the `beanstalkd`_ work queue. The API provided mostly maps one-to-one with
 commands in the `protocol`_.
-
-.. image:: https://img.shields.io/pypi/v/greenstalk.svg
-    :target: https://pypi.org/project/greenstalk/
-    :alt: Greenstalk is available on the Python Package Index
 
 Quickstart
 ----------
