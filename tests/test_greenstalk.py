@@ -1,6 +1,7 @@
 import json
 import os
 import signal
+import socket
 import subprocess
 import time
 from contextlib import contextmanager
@@ -461,6 +462,21 @@ def test_drain_mode() -> None:
             beanstalkd.terminate()
 
 
+def test_init_already_connected_socket_with_timeout() -> None:
+    host, port = DEFAULT_INET_ADDRESS
+    cmd = [BEANSTALKD_PATH, "-l", host, "-p", str(port)]
+    with subprocess.Popen(cmd) as beanstalkd:
+        time.sleep(0.1)
+        try:
+            sock = socket.create_connection((host, port))
+            sock.settimeout(0.1)
+            with Client(sock) as c:
+                with pytest.raises(socket.timeout):
+                    c.reserve()
+        finally:
+            beanstalkd.terminate()
+
+
 @with_beanstalkd(DEFAULT_INET_ADDRESS)
 def test_client_repr_inet(c: Client[str]) -> None:
     host, port = DEFAULT_INET_ADDRESS
@@ -470,6 +486,32 @@ def test_client_repr_inet(c: Client[str]) -> None:
 @with_beanstalkd(DEFAULT_UNIX_ADDRESS)
 def test_client_repr_unix(c: Client[str]) -> None:
     assert repr(c) == f"greenstalk.Client(socket='{DEFAULT_UNIX_ADDRESS}')"
+
+
+def test_client_repr_already_connected_inet() -> None:
+    host, port = DEFAULT_INET_ADDRESS
+    cmd = [BEANSTALKD_PATH, "-l", host, "-p", str(port)]
+    with subprocess.Popen(cmd) as beanstalkd:
+        time.sleep(0.1)
+        try:
+            sock = socket.create_connection((host, port))
+            with Client(sock) as c:
+                assert repr(c) == f"greenstalk.Client(host='{host}', port={port})"
+        finally:
+            beanstalkd.terminate()
+
+
+def test_client_repr_already_connected_unix() -> None:
+    cmd = [BEANSTALKD_PATH, "-l", "unix:" + DEFAULT_UNIX_ADDRESS]
+    with subprocess.Popen(cmd) as beanstalkd:
+        time.sleep(0.1)
+        try:
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            sock.connect(DEFAULT_UNIX_ADDRESS)
+            with Client(sock) as c:
+                assert repr(c) == f"greenstalk.Client(socket='{DEFAULT_UNIX_ADDRESS}')"
+        finally:
+            beanstalkd.terminate()
 
 
 def test_job_repr() -> None:

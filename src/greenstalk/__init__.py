@@ -17,6 +17,7 @@ from typing import (
 __version__ = "2.1.0"
 
 Address = Union[Tuple[str, int], str]
+ConnectionTarget = Union[Address, socket.socket]
 
 Stats = TypedDict(
     "Stats",
@@ -248,7 +249,8 @@ class Client(Generic[TBody]):
     """A client implementing the beanstalk protocol. Upon creation a connection
     with beanstalkd is established and tubes are initialized.
 
-    :param address: A socket address pair (host, port) or a Unix domain socket path.
+    :param address: A socket address pair (host, port), a Unix domain socket path,
+                    or a socket that is already connected to a beanstalkd server.
     :param encoding: The encoding used to encode and decode job bodies.
     :param use: The tube to use after connecting.
     :param watch: The tubes to watch after connecting. The ``default`` tube will
@@ -258,7 +260,7 @@ class Client(Generic[TBody]):
     @overload
     def __init__(
         self: "Client[bytes]",
-        address: Address,
+        address: ConnectionTarget,
         encoding: None,
         use: str = DEFAULT_TUBE,
         watch: Union[str, Iterable[str]] = DEFAULT_TUBE,
@@ -267,7 +269,7 @@ class Client(Generic[TBody]):
     @overload
     def __init__(
         self: "Client[str]",
-        address: Address,
+        address: ConnectionTarget,
         encoding: str = "utf-8",
         use: str = DEFAULT_TUBE,
         watch: Union[str, Iterable[str]] = DEFAULT_TUBE,
@@ -275,19 +277,23 @@ class Client(Generic[TBody]):
 
     def __init__(
         self,
-        address: Address,
+        address: ConnectionTarget,
         encoding: Optional[str] = "utf-8",
         use: str = DEFAULT_TUBE,
         watch: Union[str, Iterable[str]] = DEFAULT_TUBE,
     ) -> None:
-        if isinstance(address, str):
+        if isinstance(address, socket.socket):
+            self._sock = address
+            self._address = self._sock.getpeername()
+        elif isinstance(address, str):
             self._sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             self._sock.connect(address)
+            self._address = address
         else:
             self._sock = socket.create_connection(address)
+            self._address = address
 
         self._reader = self._sock.makefile("rb")
-        self._address = address
         self.encoding = encoding
 
         if use != DEFAULT_TUBE:
