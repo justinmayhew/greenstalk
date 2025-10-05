@@ -14,7 +14,7 @@ from typing import (
     overload,
 )
 
-__version__ = "2.1.0"
+__version__ = "2.1.1"
 
 Address = Union[Tuple[str, int], str]
 ConnectionTarget = Union[Address, socket.socket]
