@@ -291,6 +291,7 @@ class Client(Generic[TBody]):
             self._address = address
         else:
             self._sock = socket.create_connection(address)
+            self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
             self._address = address
 
         self._reader = self._sock.makefile("rb")
