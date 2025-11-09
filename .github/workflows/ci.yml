@@ -4,17 +4,21 @@ on: [push, pull_request]
 
 jobs:
   test:
+    name: Test
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.13", "3.12", "3.11", "3.10", "3.9", "3.8"]
         beanstalkd-version: ["1.13", "1.12"]
-    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - name: Check out repository
+        uses: actions/checkout@v5
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
+
       - name: Install beanstalkd ${{ matrix.beanstalkd-version }}
         env:
           BEANSTALKD_VERSION: ${{ matrix.beanstalkd-version }}
@@ -22,9 +26,11 @@ jobs:
           wget https://github.com/beanstalkd/beanstalkd/archive/v${BEANSTALKD_VERSION}.tar.gz
           tar -xzvf v${BEANSTALKD_VERSION}.tar.gz
           pushd beanstalkd-${BEANSTALKD_VERSION} && make && sudo make install && popd
+
       - name: Install Python dependencies
         run: |
-          pip install pytest
-          pip install .
+          python -m pip install pytest .
+
       - name: Run tests
-        run: pytest
+        run: |
+          pytest
