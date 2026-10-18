@@ -8,10 +8,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.14"
 
@@ -24,7 +24,7 @@ jobs:
           python -m build
 
       - name: Upload build
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: release-dist
           path: dist/
@@ -39,7 +39,7 @@ jobs:
       id-token: write
     steps:
       - name: Download build
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: release-dist
           path: dist/
