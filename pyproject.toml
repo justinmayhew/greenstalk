@@ -2,7 +2,7 @@
 name = "greenstalk"
 description = "A Python client for the beanstalkd work queue"
 license = "MIT"
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 authors = [
   { name = "Justin Mayhew", email = "mayhew@live.ca" },
 ]
